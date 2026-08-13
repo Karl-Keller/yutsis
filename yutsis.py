@@ -85,6 +85,9 @@ class Graph:
     # refinement for larger n.
     def wl_hash(self):
         if self._canon is None:
+            if self.n > 8:
+                self._canon = ("exact", self.edges)
+                return self._canon
             import itertools as it
             vs = sorted(self.adj)
             pairs = [(u, v) for u, v, _ in self.edges]
@@ -198,7 +201,9 @@ def is_goal(g: Graph):
     return g.n <= 2  # theta graph: pure normalization, value 1
 
 
-def solve(g: Graph, verbose=False):
+def solve(g: Graph, verbose=False, max_expanded=200000, greedy=False):
+    """greedy=True: best-first on h with heavy weight — fast feasible
+    upper bound, no optimality guarantee (the escape hatch for girth>=5)."""
     start = (heuristic(g), 0, next(_fresh), g, [])
     open_heap = [start]
     best_g = {g.wl_hash(): 0}
@@ -214,6 +219,9 @@ def solve(g: Graph, verbose=False):
                 "expanded": expanded,
             }
         expanded += 1
+        if expanded > max_expanded:
+            return {"factors": None, "sixj": -1, "sums": -1, "cost": -1,
+                    "expanded": expanded, "timeout": True}
         children = []
         for pair in cur.bubbles():
             children.append(excise_bubble(cur, pair))
@@ -232,7 +240,8 @@ def solve(g: Graph, verbose=False):
             best_g[key] = nc
             heapq.heappush(
                 open_heap,
-                (nc + heuristic(ng), nc, next(_fresh), ng, facs + [fac]),
+                ((nc + 5 * heuristic(ng)) if greedy else (nc + heuristic(ng)),
+                 nc, next(_fresh), ng, facs + [fac]),
             )
     return None
 
