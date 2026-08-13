@@ -29,7 +29,7 @@ def excise_bubble(g: Graph, pair):
     (x, la), (y, _) = ext
     keep.append((x, y, la))
     fac = f"delta({par[0]},{par[1]})/(2*{par[0]}+1)"
-    return Graph(keep), fac, 0, 0
+    return Graph(keep), fac, 0, 0, ("bubble", pair)
 
 
 def reduce_triangle(g: Graph, tri):
@@ -59,13 +59,13 @@ def reduce_triangle(g: Graph, tri):
             keep.append((u, v, lab))
     if len(inside_at) != 3 or len(leg_at) != 3:
         return None
-    w = f"T{next(fresh)}"
+    w = "W_" + str(a)
     merged = [(w if u in tri else u, w if v in tri else v, lab)
               for u, v, lab in keep]
     top = [inside_at[x] for x in (a, b, c)]
     bot = [leg_at[x] for x in (a, b, c)]
     fac = "sixj(" + ",".join(top + bot) + ")"
-    return Graph(merged), fac, 1, 0
+    return Graph(merged), fac, 1, 0, ("tri", tuple(tri))
 
 
 def interchanges(g: Graph):
@@ -80,7 +80,7 @@ def interchanges(g: Graph):
             continue
         for (P, pl) in un:
             for (Q, ql) in vn:
-                x = f"x{next(fresh)}"
+                x = "x_" + str(lab)
                 edges, done = [], set()
                 for a, b, l2 in g.edges:
                     if "e" not in done and {a, b} == {u, v} and l2 == lab:
@@ -94,5 +94,5 @@ def interchanges(g: Graph):
                 ng = Graph(edges)
                 if ng.check_cubic():
                     fac = f"sum_{x}(2*{x}+1)*sixj({pl},{ql},{lab},...,{x})"
-                    out.append((ng, fac, 1, 1))
+                    out.append((ng, fac, 1, 1, ("flip", (u, v, lab), (P, pl), (Q, ql))))
     return out

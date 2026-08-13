@@ -27,8 +27,9 @@ from fractions import Fraction
 class PhaseExpr:
     """(-1) raised to an integer combination of j labels, coeffs mod 4."""
 
-    def __init__(self, coeffs=None):
+    def __init__(self, coeffs=None, const=0):
         self.c = dict(coeffs or {})
+        self.k0 = const % 2
         self._norm()
 
     def _norm(self):
@@ -43,8 +44,11 @@ class PhaseExpr:
         self.c[lab] = self.c.get(lab, 0) + 2
         self._norm()
 
+    def add_const(self, k=1):
+        self.k0 = (self.k0 + k) % 2
+
     def __mul__(self, other):
-        out = PhaseExpr(self.c)
+        out = PhaseExpr(self.c, self.k0 + getattr(other, "k0", 0))
         for k, v in other.c.items():
             out.c[k] = out.c.get(k, 0) + v
         out._norm()
@@ -53,13 +57,15 @@ class PhaseExpr:
     def evaluate(self, jmap):
         e = sum(Fraction(c) * Fraction(jmap[k]) for k, c in self.c.items())
         assert e.denominator == 1, f"non-integer phase exponent {e}"
-        return -1 if e.numerator % 2 else 1
+        return -1 if (e.numerator + self.k0) % 2 else 1
 
     def __repr__(self):
         if not self.c:
-            return "+1"
+            return "-1" if self.k0 else "+1"
         terms = "+".join(f"{v}*{k}" if v > 1 else k
                          for k, v in sorted(self.c.items()))
+        if self.k0:
+            terms = "1+" + terms
         return f"(-1)^({terms})"
 
 

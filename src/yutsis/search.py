@@ -30,13 +30,13 @@ def solve(g: Graph, max_expanded=200_000, greedy=False):
     under blind flips)."""
     tie = itertools.count()
     w = 5 if greedy else 1
-    open_heap = [(w * heuristic(g), 0, next(tie), g, [])]
+    open_heap = [(w * heuristic(g), 0, next(tie), g, [], [])]
     best = {g.canonical(): 0}
     expanded = 0
     while open_heap:
-        f, cost, _, cur, facs = heapq.heappop(open_heap)
+        f, cost, _, cur, facs, descs = heapq.heappop(open_heap)
         if is_goal(cur):
-            return {"factors": facs,
+            return {"factors": facs, "moves": descs,
                     "sixj": sum(1 for fa in facs if "sixj" in fa),
                     "sums": sum(1 for fa in facs if fa.startswith("sum_")),
                     "cost": cost, "expanded": expanded, "timeout": False}
@@ -54,7 +54,7 @@ def solve(g: Graph, max_expanded=200_000, greedy=False):
         for ch in children:
             if ch is None:
                 continue
-            ng, fac, d6, ds = ch
+            ng, fac, d6, ds, desc = ch
             nc = cost + d6 + SUM_PENALTY * ds
             key = ng.canonical()
             if key in best and best[key] <= nc:
@@ -62,5 +62,5 @@ def solve(g: Graph, max_expanded=200_000, greedy=False):
             best[key] = nc
             heapq.heappush(open_heap,
                            (nc + w * heuristic(ng), nc, next(tie),
-                            ng, facs + [fac]))
+                            ng, facs + [fac], descs + [desc]))
     return None
