@@ -23,8 +23,22 @@ Threads that meet here:
 - 1983: an undergraduate under Williams attacks the reduction-ordering
   problem as machine search — independently of the AI-search literature
   then being written (Nilsson 1980, Pearl 1984), on Slagle's simplicity
-  principle. That work is cited by Williams; this repository is its
-  long-delayed continuation by the same hands.
+  principle: binary search over paths between binary coupling trees.
+  This repository is that work's long-delayed continuation by the same
+  hands.
+- 1992: the formulation enters the literature. H. T. Williams and
+  R. R. Silbar, "Automated angular momentum recoupling algebra,"
+  J. Comput. Phys. 99(2), 299-309 (1992),
+  doi:10.1016/0021-9991(92)90209-H — heuristic rules whose general
+  problem "reduces to that of finding an optimal path from one binary
+  tree ... to another," implemented in LISP on a microcomputer as a
+  code called RACAH (a name Fritzsche's later Jena package would carry
+  forward). The binary-tree path formulation seeded in 1983 is the
+  paper's central framing — and it is precisely the problem this
+  repository's yutsis.circuits module solves today as the quantum
+  recoupling-gate compiler (flip_path on the associahedron, each edge a
+  machine-verified unitary), rebuilt independently thirty-four years
+  later from the quantum-circuits direction.
 - 1990s-2000s: automation arrives — NJGRAF/NJSYM (Bar-Shalom & Klapisch),
   Fritzsche's RACAH, and GYutsis (Van Dyck & Fack 2003), which reduces
   Yutsis graphs with hand-crafted, pluggable heuristics and documents a

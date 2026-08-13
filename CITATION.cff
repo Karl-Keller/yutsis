@@ -1,0 +1,67 @@
+cff-version: 1.2.0
+message: >-
+  If you use this software, please cite it using the metadata below.
+title: "yutsis: optimal-form reduction of angular-momentum recoupling
+  graphs with machine-verified phases"
+type: software
+authors:
+  - family-names: Keller
+    given-names: Karl
+version: 0.6.0
+date-released: "2026-08-13"
+license: MIT
+repository-code: "https://github.com/Karl-Keller/yutsis"
+keywords:
+  - angular momentum
+  - Yutsis graphs
+  - recoupling coefficients
+  - 6j symbol
+  - 9j symbol
+  - Racah algebra
+  - A* search
+  - symbolic computation
+  - quantum circuits
+  - Schur transform
+abstract: >-
+  A solver for the optimal reduction of closed angular-momentum
+  diagrams (Yutsis graphs) to summation formulae over Wigner 6j
+  symbols, using A* search with admissible physics-derived heuristics,
+  nauty-canonicalized states, and cycle-targeted rewrite moves. A
+  symbolic phase engine derives exact signs for every move, and all
+  emitted formulas are validated against two independent numerical
+  oracles: brute-force magnetic-quantum-number summation of the closed
+  diagram, and overlaps of explicitly constructed Clebsch-Gordan
+  coupled states. Includes a compiler from pairs of angular-momentum
+  coupling trees to verified elementary recoupling unitaries (the
+  quantum Schur-transform gate family). Continues the reduction-
+  ordering problem studied heuristically by NJGRAF and GYutsis, first
+  attacked as an AI search problem in 1983.
+references:
+  - type: article
+    title: "Automated angular momentum recoupling algebra"
+    authors:
+      - family-names: Williams
+        given-names: H. T.
+      - family-names: Silbar
+        given-names: Richard R.
+    journal: "Journal of Computational Physics"
+    volume: 99
+    issue: 2
+    start: 299
+    end: 309
+    year: 1992
+    doi: "10.1016/0021-9991(92)90209-H"
+  - type: article
+    title: "GYutsis: heuristic based calculation of general recoupling
+      coefficients"
+    authors:
+      - family-names: Van Dyck
+        given-names: D.
+      - family-names: Fack
+        given-names: V.
+    journal: "Computer Physics Communications"
+    volume: 154
+    year: 2003
+    start: 219
+    end: 232
+    doi: "10.1016/S0010-4655(03)00280-7"
