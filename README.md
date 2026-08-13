@@ -1,50 +1,73 @@
-# yutsis — a modern reduction engine for angular-momentum recoupling
+# yutsis
 
-Optimal-form reduction of Yutsis graphs (closed angular-momentum diagrams)
-by A* over the classical rewrite rules, with a brute-force magnetic-sum
-oracle as numerical ground truth. Lineage: the algebraic-optimization
-problem attacked as an AI search problem in the early 1980s (Williams /
-Danos, NBS), automated heuristically by GYutsis (Van Dyck & Fack 2003),
-reframed here with modern optimal search and a road to learned heuristics
-and quantum-circuit compilation.
+Optimal-form reduction of angular-momentum recoupling graphs (Yutsis
+diagrams) by A* search over the classical rewrite rules — with a
+brute-force magnetic-sum oracle as numerical ground truth.
 
-## Files
-- yutsis.py     graph layer, rewrite moves, A* (+greedy) solver
-- oracle.py     ClosedDiagram: direct m-summation over wigner_3j
-- test_oracle.py  CI suite (all passing)
-- stress.py     scaling experiments
+General recoupling coefficients (3nj symbols) reduce to summation formulae
+over products of 6j symbols. Finding the *cheapest* such formula — fewest
+summation variables, fewest factors — is a search problem over graph
+rewrites: bubble excision, triangle reduction, and edge interchange on
+cubic multigraphs. This package treats it as one, with an admissible
+heuristic and provable optimality at small sizes, and every structural
+claim validated numerically against direct magnetic summation.
 
-## Verified results (v0)
-- Oracle conventions phase-exact: tetrahedron == wigner_6j on integer and
-  half-integer cases; theta = (-1)^(j1+j2+j3) with the documented
-  odd-permutation node order (the node-sign convention, caught as designed)
-- K3,3 closed diagram == wigner_9j EXACTLY (ratio +1.0000, three cases)
-- Solver benchmarks reproduce known forms: tetra -> one 6j; prism ->
-  {6j}{6j} (magnitude exact; j-dependent sign pinned by oracle = milestone-2
-  phase work); K3,3 -> sum_x(2x+1) x three 6j (verified to 1e-10);
-  cube Q3 -> one sum, four 6j
+## Install
 
-## Findings (the honest part)
-1. 1-WL hashing collapses all cubic graphs (regular-graph failure mode) —
-   exact canonicalization required; GNN heuristics will need expressivity
-   beyond plain message passing for the same reason
-2. Fresh summation labels defeat naive dedup at n > 8 — nauty-style
-   canonical labeling is required for scale
-3. Girth-5 graphs (Petersen) defeat both A* and weighted greedy under
-   blind edge flips: ~60-wide branching with no triangle payoff for two
-   plies. Motivates cycle-targeted moves (the GYutsis girth strategy) as
-   the milestone-3 move set
+    pip install -e ".[dev]"
+    pytest -q          # ground-truth + solver suites
+    python -m yutsis   # benchmark reductions
+
+## Example
+
+```python
+from yutsis import solve
+from yutsis.benchmarks import k33
+
+r = solve(k33())          # the 9j symbol as a closed graph
+print(r["sixj"], r["sums"])   # -> 3, 1  (sum_x (2x+1) x three 6j's)
+```
+
+## Verified (v0)
+
+- Oracle conventions are phase-exact: the tetrahedron diagram reproduces
+  `wigner_6j` including sign on integer and half-integer cases; the K3,3
+  diagram equals `wigner_9j` at ratio +1.0000
+- Solver reproduces known forms: tetrahedron -> one 6j; prism -> {6j}{6j}
+  with no summation; K3,3 -> the 9j single-sum identity (verified to
+  1e-10); cube Q3 -> one sum, four 6j
+- The prism factorization's j-dependent sign is pinned empirically by the
+  oracle: the first target for the phase engine
+
+## Findings
+
+1. 1-WL hashing collapses all cubic graphs (regular-graph blindness) —
+   exact canonicalization is required, and learned heuristics will need
+   expressivity beyond plain message passing for the same reason
+2. Fresh summation labels defeat naive dedup above n = 8 — nauty-style
+   canonical labeling is the scaling milestone
+3. Girth-5 inputs (Petersen) defeat both A* and weighted greedy under
+   blind edge flips: cycle-targeted moves are required, and the known
+   counter-example to girth-first greediness (Van Dyck & Fack) says their
+   ordering should ultimately be learned, not hard-coded
 
 ## Roadmap
-1. Phase engine: Danos-consistent signs/arrows derived, validated against
-   the oracle in CI (prism sign is the first target)
-2. Cycle-targeted interchange moves; nauty canonicalization; general
-   n-line separator cuts
-3. Backends: sympy exact, wigxjpf fast float
-4. Learned guidance: GNN value function (>1-WL expressivity), MCTS
-5. Applications: SU(2) tensor-network contraction planning; quantum Schur /
-   CG-cascade circuit compilation (formula size = gate count)
 
-## Run
-    python3 yutsis.py       # benchmarks
-    python3 test_oracle.py  # ground-truth suite
+1. Phase engine: signs and weights derived from node orders and arrows
+   (Danos-consistent conventions), validated against the oracle in CI
+2. Cycle-targeted interchanges; nauty canonicalization; general n-line
+   separator cuts
+3. Numeric backends: sympy (exact), wigxjpf (fast float)
+4. Learned guidance: GNN value function, MCTS for large diagrams
+5. Applications: SU(2)-symmetric tensor-network contraction planning;
+   quantum Schur / Clebsch-Gordan cascade circuit compilation, where
+   formula size is gate count
+
+## Lineage
+
+See [docs/HISTORY.md](docs/HISTORY.md) — from Slagle's SAINT and the
+Yutsis-Levinson-Vanagas calculus through Danos and Williams at NBS, the
+GYutsis heuristics of Van Dyck & Fack, to this reframing with modern
+optimal search.
+
+MIT license.

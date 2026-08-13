@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yutsis"
+version = "0.1.0"
+description = "Optimal-form reduction of angular-momentum recoupling graphs by A* search, with a brute-force magnetic-sum oracle as ground truth"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Karl Keller" }]
+keywords = ["angular momentum", "Yutsis graphs", "6j", "9j", "recoupling",
+            "Racah algebra", "symbolic computation", "A* search"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Physics",
+  "Programming Language :: Python :: 3",
+]
+dependencies = ["sympy>=1.12"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.urls]
+Repository = "https://github.com/Karl-Keller/yutsis"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

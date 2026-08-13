@@ -1,7 +1,7 @@
 """CI tests: oracle conventions and solver claims, validated numerically."""
 from sympy import S
 from sympy.physics.wigner import wigner_6j, wigner_9j
-from oracle import theta, tetrahedron, prism, k33
+from yutsis.oracle import theta, tetrahedron, prism, k33
 
 def close(a, b, tol=1e-9):
     return abs(a - b) < tol
