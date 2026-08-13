@@ -3,7 +3,7 @@ from __future__ import annotations
 import heapq
 import itertools
 from .graph import Graph
-from .moves import excise_bubble, reduce_triangle, interchanges
+from .moves import excise_bubble, reduce_triangle, interchanges, targeted_interchanges
 
 SUM_PENALTY = 10  # one surviving summation ~ ten 6j lookups at evaluation
 
@@ -50,7 +50,7 @@ def solve(g: Graph, max_expanded=200_000, greedy=False):
         for tri in cur.triangles():
             children.append(reduce_triangle(cur, tri))
         if not cur.triangles() and not cur.bubbles():
-            children.extend(interchanges(cur))
+            children.extend(targeted_interchanges(cur) or interchanges(cur))
         for ch in children:
             if ch is None:
                 continue

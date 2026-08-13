@@ -45,20 +45,61 @@ class Graph:
             return 3
         return 4
 
-    def canonical(self):
-        """Exact canonical certificate.
+    def girth_cycle(self):
+        """One shortest cycle as an ordered vertex tuple (None if acyclic).
+        For each edge, BFS the shortest alternative path between its
+        endpoints; the minimum closes the girth cycle."""
+        from collections import deque
+        best = None
+        for u0, v0, lab0 in self.edges:
+            if u0 == v0:
+                continue
+            par = {u0: None}
+            dq = deque([u0])
+            found = False
+            while dq and not found:
+                w = dq.popleft()
+                for nb, lab, ei in self.adj[w]:
+                    if w == u0 and nb == v0 and lab == lab0:
+                        continue  # skip the removed edge itself
+                    if nb not in par:
+                        par[nb] = w
+                        if nb == v0:
+                            found = True
+                            break
+                        dq.append(nb)
+            if v0 in par:
+                path = [v0]
+                while path[-1] != u0:
+                    path.append(par[path[-1]])
+                if best is None or len(path) < len(best):
+                    best = path
+        return tuple(best) if best else None
 
-        1-WL color refinement provably collapses on regular graphs (all
-        cubic graphs look identical to it), so for n <= 8 we brute-force
-        the canonical form over vertex permutations of the anonymous
-        multigraph. Above that we fall back to the exact labeled edge
-        tuple: sound (never merges distinct states) but blind to
-        isomorphism. Roadmap: nauty-style individualized refinement.
-        """
+    def canonical(self):
+        """Canonical certificate via nauty (individualization-refinement:
+        1-WL equitable refinement plus symmetry breaking plus
+        automorphism pruning -- exactly what Finding 1 showed plain 1-WL
+        lacks on regular graphs). Multigraph handled by subdividing each
+        edge with a distinctly colored edge-vertex. Pure-Python brute
+        force retained as fallback for environments without pynauty."""
         if self._canon is None:
-            if self.n > 8:
-                self._canon = ("exact", self.edges)
-            else:
+            try:
+                import pynauty
+                vs = sorted(self.adj)
+                idx = {v: i for i, v in enumerate(vs)}
+                n0 = len(vs)
+                adj = {i: [] for i in range(n0 + len(self.edges))}
+                for k, (u, v, lab) in enumerate(self.edges):
+                    ev = n0 + k
+                    adj[ev] = [idx[u], idx[v]]
+                g = pynauty.Graph(n0 + len(self.edges),
+                                  adjacency_dict=adj,
+                                  vertex_coloring=[set(range(n0)),
+                                                   set(range(n0, n0 + len(self.edges)))])
+                self._canon = pynauty.certificate(g)
+            except ImportError:
+                import itertools
                 vs = sorted(self.adj)
                 pairs = [(u, v) for u, v, _ in self.edges]
                 best = None

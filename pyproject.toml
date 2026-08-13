@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yutsis"
-version = "0.4.0"
+version = "0.5.0"
 description = "Optimal-form reduction of angular-momentum recoupling graphs by A* search, with a brute-force magnetic-sum oracle as ground truth"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -22,6 +22,7 @@ dependencies = ["sympy>=1.12"]
 
 [project.optional-dependencies]
 dev = ["pytest>=7"]
+perf = ["pynauty>=2"]
 
 [project.urls]
 Repository = "https://github.com/Karl-Keller/yutsis"

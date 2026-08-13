@@ -96,3 +96,52 @@ def interchanges(g: Graph):
                     fac = f"sum_{x}(2*{x}+1)*sixj({pl},{ql},{lab},...,{x})"
                     out.append((ng, fac, 1, 1, ("flip", (u, v, lab), (P, pl), (Q, ql))))
     return out
+
+
+def targeted_interchanges(g: Graph):
+    """Cycle-shortening flips only (the GYutsis girth strategy): pick one
+    shortest cycle v1..vL; for each adjacent edge pair (p, e) along it,
+    flip e with P = the cycle vertex behind u -- the cycle contracts by
+    one. Branching drops from ~4|E| to ~4L. A* remains optimal over this
+    restricted move class (Finding 3 / milestone 3; blind flips are
+    retained in interchanges() for exhaustive small-n work)."""
+    cyc = g.girth_cycle()
+    if not cyc or len(cyc) < 4:
+        return []
+    L = len(cyc)
+    out, seen = [], set()
+    def elab(u, v):
+        for a, b, lab in g.edges:
+            if {a, b} == {u, v}:
+                return lab
+        return None
+    for d in (1, -1):
+        order = cyc if d == 1 else tuple(reversed(cyc))
+        for i in range(L):
+            P, u, v = order[i - 1], order[i], order[(i + 1) % L]
+            e, pl = elab(u, v), elab(P, u)
+            if e is None or pl is None:
+                continue
+            for Q, ql, _ in g.adj[v]:
+                if ql == e:
+                    continue
+                key = (e, pl, ql, u)
+                if key in seen:
+                    continue
+                seen.add(key)
+                x = "x_" + str(e)
+                edges, done = [], set()
+                for a, b, l2 in g.edges:
+                    if "e" not in done and {a, b} == {u, v} and l2 == e:
+                        edges.append((u, v, x)); done.add("e")
+                    elif "p" not in done and {a, b} == {u, P} and l2 == pl:
+                        edges.append((v, P, pl)); done.add("p")
+                    elif "q" not in done and {a, b} == {v, Q} and l2 == ql:
+                        edges.append((u, Q, ql)); done.add("q")
+                    else:
+                        edges.append((a, b, l2))
+                ng = Graph(edges)
+                if ng.check_cubic():
+                    fac = f"sum_{x}(2*{x}+1)*sixj({pl},{ql},{e},...,{x})"
+                    out.append((ng, fac, 1, 1, ("flip", (u, v, e), (P, pl), (Q, ql))))
+    return out

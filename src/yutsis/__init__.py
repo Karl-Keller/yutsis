@@ -7,5 +7,5 @@ from .graph import Graph
 from .search import solve, heuristic, SUM_PENALTY
 from . import benchmarks, oracle, phase, oriented
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 __all__ = ["Graph", "solve", "heuristic", "SUM_PENALTY", "benchmarks", "oracle", "phase"]

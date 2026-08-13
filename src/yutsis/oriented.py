@@ -91,11 +91,11 @@ def reduce_triangle_exact(og: OGraph, tri):
         if lab in inside.values():
             continue
         if lab in leg_order:
-            new_edges[lab] = ("W" + a, h) if t in tri else (t, "W" + a)
+            new_edges[lab] = ("W_" + str(a), h) if t in tri else (t, "W_" + str(a))
         else:
             new_edges[lab] = (t, h)
     new_verts = {v: s for v, s in og.verts.items() if v not in tri}
-    new_verts["W" + a] = leg_order
+    new_verts["W_" + str(a)] = leg_order
     return OGraph(new_edges, new_verts), phase, sixj_args
 
 

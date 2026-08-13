@@ -16,5 +16,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
+      - run: pip install pynauty || true
       - run: pytest -q
       - run: python -m yutsis
