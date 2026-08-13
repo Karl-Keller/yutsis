@@ -77,30 +77,36 @@ assignments — to 1e-9. Run it yourself:
   transform, and unitary, to ~1e-16. The Schur-transform gate family,
   machine-verified
 
-## Findings (the honest part)
+## Assessed Findings and Next Steps
 
-1. 1-WL hashing collapses all cubic graphs (regular-graph blindness);
-   canonicalization now runs through nauty's individualization-
-   refinement — 1-WL plus symmetry breaking plus automorphism pruning —
-   and learned heuristics will need expressivity beyond plain message
-   passing for the same reason
-2. Fresh summation labels defeat naive dedup above n = 8; exact nauty
-   certificates on the subdivided multigraph resolve it
-3. Girth-5 inputs defeated both A* and weighted greedy under blind edge
-   flips; cycle-targeted interchanges (the girth strategy) cut
-   branching from ~4|E| to ~4L and retired the wall — while the known
-   counter-example to girth-first greediness (Van Dyck & Fack) says
-   move ordering should ultimately be learned
+The project's three original findings are retired at benchmark scale,
+not resolved in principle — each carries a residual worth naming (full
+analysis in [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md)):
 
-## Roadmap
+1. **1-WL blindness** (two-thirds closed). Canonicalization is cured in
+   principle by nauty's individualization-refinement. The open half:
+   learned heuristics need expressivity beyond message passing, since
+   plain GNNs are provably 1-WL-bounded and hence blind to the
+   twisted-vs-untwisted distinction the cost model turns on. K3,3 vs
+   the prism is the ready-made benchmark; closure is a learned value
+   function that beats the hand-built one on held-out graphs.
+2. **Dedup collapse** (nearly closed). Exact certificates on the
+   subdivided multigraph solve it; the residual is stating the
+   label-discarding merge argument as a proper lemma, with its boundary
+   explicit (it fails for magnitude- or sparsity-aware cost models).
+3. **Girth-5 wall** (open, and the deepest). Cycle-targeted moves
+   retired the wall but restrict the move class, and Petersen's true
+   minimum (three summations, or two?) is uncertified. The
+   highest-value attack: a treewidth-derived admissible bound —
+   summation count is governed by the same invariants as tensor-network
+   contraction complexity — which would certify Petersen, restore
+   provable optimality over the full move set, and marry this project
+   to the tensor-network literature in one stroke.
 
-1. Cost-aware associahedron search: solver summation costs steering
-   coupling-path selection; qudit generalization; Qiskit emission
-2. General n-line separator cuts; wigxjpf fast-float backend
-3. Learned guidance: GNN value function (> 1-WL expressivity), MCTS
-4. Applications: SU(2)-symmetric tensor-network contraction planning;
-   quantum Schur / Clebsch-Gordan cascade circuit optimization, where
-   formula size is gate count
+Broader roadmap: cost-aware associahedron search and Qiskit emission in
+`yutsis.circuits`; qudit generalization; general n-line separator cuts;
+wigxjpf backend; learned move ordering with exact-search fallback;
+SU(2) tensor-network contraction planning.
 
 ## Lineage
 
