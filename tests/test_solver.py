@@ -25,3 +25,16 @@ def test_cube_single_sum_four_6j():
 def test_optimality_prefers_sum_free_route():
     # prism cost must beat any summation-bearing alternative
     assert solve(prism())["cost"] < 10
+
+
+def test_triangle_factor_uses_opposite_edge_pairing():
+    # Reducing the prism's left triangle must pair inside edges with the
+    # legs OPPOSITE them -- the structure proved by the prism phase
+    # theorem. Column pairs for {top; bottom} are (top_i, bottom_i).
+    r = solve(prism())
+    fac = r["factors"][0]
+    args = fac[len("sixj("):-1].split(",")
+    pairs = {frozenset((args[i], args[i + 3])) for i in range(3)}
+    theorem_pairs = {frozenset(("l1", "j3")), frozenset(("l3", "j2")),
+                     frozenset(("l2", "j1"))}
+    assert pairs == theorem_pairs, fac

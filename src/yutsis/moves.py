@@ -33,22 +33,38 @@ def excise_bubble(g: Graph, pair):
 
 
 def reduce_triangle(g: Graph, tri):
-    inside, legs, keep = [], [], []
+    """Contract a triangle, emitting its cap-tetrahedron 6j.
+
+    Argument order encodes the OPPOSITE-EDGE pairing proved by the prism
+    phase theorem (yutsis.phase, Finding 4): column i pairs the inside
+    edge NOT touching triangle vertex i with the leg AT vertex i. The
+    overall sign still requires oriented, slot-ordered graph states
+    (milestone 2 continuation); emitted as sixj(...) up to phase."""
+    a, b, c = tri
+    inside_at, leg_at, keep = {}, {}, []
     for u, v, lab in g.edges:
         pin = (u in tri) + (v in tri)
         if pin == 2:
-            inside.append(lab)
+            other = ({a, b, c} - {u, v}).pop()
+            if other in inside_at:
+                return None  # doubled inside edge: not a clean triangle
+            inside_at[other] = lab
         elif pin == 1:
-            legs.append(lab)
+            w = u if u in tri else v
+            if w in leg_at:
+                return None
+            leg_at[w] = lab
             keep.append((u, v, lab))
         else:
             keep.append((u, v, lab))
-    if len(inside) != 3 or len(legs) != 3:
+    if len(inside_at) != 3 or len(leg_at) != 3:
         return None
     w = f"T{next(fresh)}"
     merged = [(w if u in tri else u, w if v in tri else v, lab)
               for u, v, lab in keep]
-    fac = "sixj(" + ",".join(inside + legs) + ")"
+    top = [inside_at[x] for x in (a, b, c)]
+    bot = [leg_at[x] for x in (a, b, c)]
+    fac = "sixj(" + ",".join(top + bot) + ")"
     return Graph(merged), fac, 1, 0
 
 
