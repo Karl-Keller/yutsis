@@ -1,4 +1,5 @@
 # yutsis
+![CI](https://github.com/Karl-Keller/yutsis/actions/workflows/ci.yml/badge.svg)
 
 Optimal-form reduction of angular-momentum recoupling graphs (Yutsis
 diagrams) by A* search over the classical rewrite rules — with a
