@@ -20,7 +20,7 @@ trusted on inspection.
 ## Install
 
     pip install -e ".[dev,perf]"   # perf pulls pynauty for fast canonicalization
-    pytest -q                      # 89 tests: oracles, theorems, bounds, k=1, compiler
+    pytest -q                      # 91 tests: oracles, theorems, bounds, k=1, compiler
     python -m yutsis               # benchmark reductions
 
 ## Showcase: the Petersen graph (a 15j symbol)
@@ -49,7 +49,7 @@ assignments — to 1e-9. Run it yourself:
 
     python scripts/verify_petersen.py
 
-## Verified results (v0.8.0)
+## Verified results (v0.8.1)
 
 - **The k=1 sector, half closed** (`yutsis.moves.excise_loop`,
   [docs/K1_SECTOR.md](docs/K1_SECTOR.md)): a closed diagram is a
@@ -112,10 +112,13 @@ analysis in [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md)):
    twisted-vs-untwisted distinction the cost model turns on. K3,3 vs
    the prism is the ready-made benchmark; closure is a learned value
    function that beats the hand-built one on held-out graphs.
-2. **Dedup collapse** (nearly closed). Exact certificates on the
-   subdivided multigraph solve it; the residual is stating the
-   label-discarding merge argument as a proper lemma, with its boundary
-   explicit (it fails for magnitude- or sparsity-aware cost models).
+2. **Dedup collapse** (closed in v0.8.1). Exact certificates on the
+   subdivided multigraph solve it, and the label-discarding merge
+   argument is now Lemma 3 of [docs/BOUNDS.md](docs/BOUNDS.md) — proved,
+   machine-checked by relabelling, and with its boundary explicit: it
+   fails for cost models pricing by magnitude, label sharing, or
+   summation range, so a cost-model change is also a canonicalization
+   change.
 3. **Girth-5 wall** (Petersen closed in v0.6.1; the bound still open).
    **Petersen's minimum is three summations, certified**: uniform-cost
    search with `h = 0` over the *unrestricted* move set gives
@@ -142,6 +145,19 @@ analysis in [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md)):
    the flip was unguarded against self-loop legs, and the evaluator
    never enforced the 3j triad conditions (186 of 729 labelings wrong on
    an existing fixture, no k=1 move involved)
+
+5. **The heuristic does almost nothing** (new, and now the live
+   problem). Measured by `scripts/headroom.py`: A* must expand at least
+   as many nodes as the plan has moves, and at n=30 it expands **2010**
+   to find a **25**-move plan — 99% waste. Turning the heuristic off
+   entirely costs **~2%**, and that figure *decays* with n (20% at
+   n=16), so the bound is getting less useful with scale. The wall is at
+   **n≈28**. A provable girth strengthening (`S ≥ true_girth − 3`) was
+   implemented and measured: 0–3%, no better. The arithmetic says why —
+   at n=30 the cost is 135, of which summations are ~110, and any
+   *local* bound returns ≤20. **This is the case for the
+   carving/branchwidth bound, and its specification: an estimate of
+   remaining summations that scales with n.**
 
 Broader roadmap: cost-aware associahedron search and Qiskit emission in
 `yutsis.circuits`; qudit generalization; general n-line separator cuts;

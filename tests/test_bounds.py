@@ -234,6 +234,38 @@ def test_shipped_heuristic_never_exceeds_decomposition_variant():
         assert heuristic(g) <= sixj_bound_decomposition(g) + sum_bound(g)
 
 
+# --- Lemma 3: the merge lemma ----------------------------------------
+
+def test_merge_lemma_cost_is_label_independent():
+    """Lemma 3 (docs/BOUNDS.md). States are deduped by an ANONYMOUS
+    certificate, which is sound only because C* depends on the topology
+    and not the labels. Relabelling must change neither.
+
+    This is the state-space collapse the whole search rests on, so it is
+    checked rather than asserted."""
+    import random
+
+    rng = random.Random(20260814)
+    for g in [B.tetrahedron(), B.prism(), B.k33(), B.cube(),
+              B.random_cubic(8, seed=3), TWO_DIAMOND_COUNTEREXAMPLE]:
+        labels = [lab for _u, _v, lab in g.edges]
+        shuffled = labels[:]
+        rng.shuffle(shuffled)
+        mapping = dict(zip(labels, shuffled))
+        relabelled = Graph([(u, v, mapping[lab]) for u, v, lab in g.edges])
+        assert relabelled.canonical() == g.canonical()
+        assert optimal_cost(relabelled) == optimal_cost(g)
+
+
+def test_merge_lemma_holds_under_vertex_renaming():
+    """The certificate is an isomorphism invariant, so renaming vertices
+    must not change it either."""
+    g = B.prism()
+    renamed = Graph([(f"v{u}", f"v{v}", lab) for u, v, lab in g.edges])
+    assert renamed.canonical() == g.canonical()
+    assert optimal_cost(renamed) == optimal_cost(g)
+
+
 # --- benchmarks -------------------------------------------------------
 
 @pytest.mark.parametrize("name,fn", [

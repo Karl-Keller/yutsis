@@ -25,22 +25,26 @@ identity-aware/random-feature GNNs — individualization as a learning
 trick), show it separates the K3,3/prism family, and demonstrate it
 beats the hand-built heuristic on a held-out graph distribution.
 
-## Finding 2 — dedup collapse (nearly closed; one unwritten lemma)
+## Finding 2 — dedup collapse (CLOSED in v0.8.1)
 
 Exact nauty certificates on the subdivided multigraph solve the
 collapse outright, and nauty's pathological cases live far from our
 sizes (swap to Traces or sparse nauty if n grows past a few dozen).
 
-The residual is intellectual hygiene: states are merged by ANONYMOUS
+The residual was intellectual hygiene: states are merged by ANONYMOUS
 topology, discarding j-labels, on the argument that future reduction
-cost depends only on topology. The argument is correct but currently
-folklore in a docstring. It deserves a stated one-paragraph lemma with
-its boundary explicit: it holds for the current cost model, and would
-FAIL for cost models pricing formulas by numerical magnitude or by
-shared-label sparsity.
+cost depends only on topology. The argument was correct but folklore in
+a docstring.
 
-Closure criterion: write the merge lemma into the docs, with the
-boundary conditions, and reference it from Graph.canonical().
+**Closed.** It is now Lemma 3 of docs/BOUNDS.md, with its proof (every
+move's guard is a topological pattern and every move's price is a
+constant of its type, so `C*` is an isomorphism invariant) and its
+boundary stated explicitly: it FAILS for cost models that price by
+numerical magnitude, by label sharing, or by summation range — so a cost
+model change is also a canonicalization change. `Graph.canonical()`
+references it, and `tests/test_bounds.py` machine-checks the content by
+relabelling corpus graphs and asserting both the certificate and `C*`
+are unchanged.
 
 ## Finding 3 — girth-5 wall (prong 1 CLOSED in v0.6.1)
 
@@ -114,7 +118,7 @@ What remains:
    move set as it now stands, and must be re-certified in the same
    commit as any further free move.
 
-## The k=1 sector — CLOSED in v0.8.0
+## Finding 4 — the k=1 sector (CLOSED in v0.8.0)
 
 Self-loops and bridges were never edge cases: they are the `k = 1` case
 of the separation calculus, where a single line crossing a cut must
@@ -145,6 +149,51 @@ to k=1:
 to `bounds.sum_bound`'s move-availability test in the same commit that
 adds the move. Loop excision and bridge cut each falsified Lemma 1's
 hypothesis at exactly the states they were added to handle.
+
+## Finding 5 — the heuristic does almost nothing (new, v0.8.1)
+
+Measured by `scripts/headroom.py`. A* must expand at least as many nodes
+as the optimal plan has moves, so `expanded - moves` is the entire prize
+available to a better admissible bound, and the comparison against
+`h = 0` says how much of it the shipped bound already collects.
+
+| n | moves | exp(h) | exp(h=0) | headroom | saved |
+|---|---|---|---|---|---|
+| 16 | 9 | 20 | 25 | 11 | 20% |
+| 20 | 14 | 99 | 102 | 85 | 3% |
+| 22 | 16 | 222 | 228 | 206 | 3% |
+| 26 | 21 | 983 | 1004 | 962 | 2% |
+| 30 | 25 | 2010 | 2040 | 1985 | 2% |
+
+Two facts, and they point the same way:
+
+1. **The wall is at n ~ 28**, not at benchmark scale. Everything through
+   n = 18 is instant; n = 26 takes 1.3 s; one n = 28 instance blew a 25 s
+   budget.
+2. **Turning the heuristic off costs ~2%.** At n = 30 the search expands
+   2010 nodes to find a 25-move plan, so 99% of the work is waste and
+   the shipped bound removes a fiftieth of it. The `saved` column decays
+   from 20% to 2% as n grows: the bound is becoming *less* useful with
+   scale, exactly backwards.
+
+**Why local bounds cannot fix this, tested not assumed.** The girth
+strengthening `S >= true_girth - 3` — provable, and cheap now that
+`true_girth()` exists — was implemented and measured: **0-3% expansion
+cut**, indistinguishable from the shipped bound.
+
+The reason is arithmetic. At n = 30 the optimal cost is 135, of which
+summations are ~110 (`S ~ 11` at `SUM_PENALTY = 10`). Any *local*
+bound — "at least one flip", "at least girth - 3" — returns at most 20.
+A heuristic that estimates 20 out of 135 cannot prune.
+
+**This is the sharpest argument yet FOR the carving/branchwidth bound**,
+and it also says what such a bound must achieve to be worth building:
+**an estimate of the total remaining summations that scales with n.**
+Width invariants grow with the graph; girth does not. That is the whole
+difference, and it is why the edge-separator redirect matters rather
+than being a technicality.
+
+Closure criterion: a bound whose `saved` column does not decay with n.
 
 ## Standing lesson from v0.6.1
 

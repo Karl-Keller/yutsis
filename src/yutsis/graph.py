@@ -232,7 +232,17 @@ class Graph:
         automorphism pruning -- exactly what Finding 1 showed plain 1-WL
         lacks on regular graphs). Multigraph handled by subdividing each
         edge with a distinctly colored edge-vertex. Pure-Python brute
-        force retained as fallback for environments without pynauty."""
+        force retained as fallback for environments without pynauty.
+
+        The certificate is ANONYMOUS: j-labels are discarded, so states
+        of the same shape merge even when their labels differ. That is
+        sound because every move's guard is a topological pattern and
+        every move's price is a constant of its type, so C* is an
+        isomorphism invariant -- the merge lemma, Lemma 3 of
+        docs/BOUNDS.md, which also states the boundary. It FAILS for
+        cost models that price by numerical magnitude, by label sharing,
+        or by summation range; changing the cost model means revisiting
+        this merge."""
         if self._canon is None:
             try:
                 import pynauty
