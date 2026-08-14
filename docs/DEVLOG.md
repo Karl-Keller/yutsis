@@ -348,3 +348,61 @@ components, Lemma 0 at `(n-2C)/2`, per-component bounds) — next PR. The
 exact layer has no oriented loop excision yet, so `solve_exact` still
 meets a non-theta and raises; pinned as a strict xfail rather than
 described.
+
+## Session 13 — v0.7.1 (2026-08-14): the k=1 exact layer
+
+**What was built.** `excise_loop_exact`: loop excision with exact signs,
+completing the move started in v0.7.0. The expression grew `zeros`
+(labels forced to `j = 0`) and `sqrt_num` / `sqrt_den`.
+
+**The phase was measured, not guessed.** The canonical tadpole — `v`
+slots `(k,k,c)` with the loop's tail first and `c: v->w`, `w` slots
+`(c,a,b)` with `a`,`b` tailed at `w` — excises with factor
+`sqrt(2k+1)/sqrt(2a+1) * d(c,0) * d(a,b)` and phase **exactly +1**: the
+ratio `before/(factor*after)` came back `+1.0` on every labeling of the
+canonical family, so there was no residual sign to fit. The general case
+normalizes by slot permutations and orientation flips exactly as
+`excise_bubble_exact` does. The loop needs no special orientation
+handling — the oracle fixes its tail/head by slot order, so any
+reordering preserving the relative order of the two `k` slots preserves
+the orientation.
+
+Verified across **all 576 slot-permutation x orientation configurations,
+2880 comparisons, 0 mismatches**. End-to-end on `theta-with-handle`,
+`solve_exact` matches brute-force magnetic summation on **256 labelings
+(49 nonzero), 0 mismatches**, and vanishes identically at `j_e != 0`.
+
+**What it exposed — a pre-existing evaluator bug, not a k=1 one.** Every
+emitted identity (3j orthogonality for the bubble, Racah for the
+triangle, K1a/K1b for the loop) is derived **assuming the source
+vertex's triad exists**, and the final theta is folded into `theta_sign`
+as a `+-1` phase presuming the same. Where a triad fails the diagram is
+zero but the emitted factors are not, so `evaluate_expr` reported `+-1`
+on vanishing diagrams.
+
+Measured on the **existing bubble fixture, no k=1 move involved: 186 of
+729 labelings wrong.** The shipped tests happened to sit on valid
+labelings, which is exactly how it survived four releases. `replay` now
+records the input triads and the final theta's labels; `evaluate_expr`
+enforces the 3j conditions — integral triad sum and triangle inequality
+— with the theta check *inside* the summation, since its labels can be
+summation variables. Same sweep: **0 of 729**.
+
+**What it taught.** A formula that agrees with the oracle on the
+labelings you chose is not a formula that agrees with the oracle. The
+bug had been reachable since v0.4.0 and was found only because a new
+move produced a labeling family that sat on the boundary. Sweeping a
+grid costs seconds; the existing tests each checked three points.
+
+**Verification.**
+
+- 74 tests green (up from 58 + 1 xfail; the strict xfail flipped and was
+  replaced by real oracle-validated tests).
+- `scripts/certify_bounds.py`: CERTIFIED (shipped heuristic) — the
+  structural search is untouched.
+- Stress: costs and A* expansions identical on every case.
+- `scripts/verify_petersen.py`: still `+0.004629630 == +0.004629630`,
+  so the triad enforcement does not disturb the flagship result.
+
+**Not addressed here.** Bridge cut and the dumbbell terminal, both
+needing the multi-component / empty-diagram state model — next.

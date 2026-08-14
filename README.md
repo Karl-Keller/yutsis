@@ -20,7 +20,7 @@ trusted on inspection.
 ## Install
 
     pip install -e ".[dev,perf]"   # perf pulls pynauty for fast canonicalization
-    pytest -q                      # 59 tests: oracles, theorems, bounds, k=1, compiler
+    pytest -q                      # 74 tests: oracles, theorems, bounds, k=1, compiler
     python -m yutsis               # benchmark reductions
 
 ## Showcase: the Petersen graph (a 15j symbol)
@@ -49,7 +49,7 @@ assignments — to 1e-9. Run it yourself:
 
     python scripts/verify_petersen.py
 
-## Verified results (v0.7.0)
+## Verified results (v0.7.1)
 
 - **The k=1 sector, half closed** (`yutsis.moves.excise_loop`,
   [docs/K1_SECTOR.md](docs/K1_SECTOR.md)): a closed diagram is a
@@ -136,7 +136,12 @@ analysis in [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md)):
    incorrectness: `solve()` used to terminate on two tadpoles joined by
    a bridge (accepted because `is_goal` was `n <= 2`) and emit a formula
    with every `j = 0` constraint dropped. The goal test is now a true
-   theta, and `true_girth()` is the one function that sees 1-cycles.
+   theta, `true_girth()` is the one function that sees 1-cycles, and
+   the move is exact: phase measured at +1 canonically, 0 mismatches
+   over all 576 slot/orientation configurations. Fixing the evaluator
+   for it also caught a **pre-existing** bug — the 3j triad conditions
+   were never enforced, so the formula reported ±1 on vanishing
+   diagrams (186 of 729 labelings wrong on an existing fixture).
    **Bridge cut remains open**: it splits the diagram into two closed
    pieces, which the single-graph state model cannot represent
 

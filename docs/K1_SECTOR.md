@@ -134,6 +134,49 @@ Reach for `true_girth()`; the carving/branchwidth bound must.
   PR.
 - **The dumbbell terminal**, for the same reason (bare circle = empty
   diagram).
-- **The exact layer.** Loop excision has no oriented counterpart yet, so
-  `solve_exact` still meets a non-theta and raises. Pinned as an xfail
-  in `tests/test_k1_sector.py`; lands with the phase derivation.
+## The exact layer (v0.7.1)
+
+`excise_loop_exact` completes the move. The canonical patch — `v` slots
+`(k,k,c)` with the loop's tail first and `c: v->w`, `w` slots `(c,a,b)`
+with `a` and `b` both tailed at `w` — excises with factor
+
+    sqrt(2k+1) / sqrt(2a+1) * delta(c,0) * delta(a,b)
+
+and phase **exactly +1**. That was measured, not assumed: the ratio
+`before / (factor * after)` is `+1.0` on every labeling of the canonical
+family.
+
+The general case normalizes by slot permutations (`(-1)^triad`) and
+orientation flips (`(-1)^(2j)`), exactly as `excise_bubble_exact` does.
+The loop needs no special orientation handling: the oracle fixes its
+tail/head by **slot order**, so any reordering preserving the relative
+order of the two `k` slots preserves the orientation.
+
+**Verified**: across all 576 slot-permutation x orientation
+configurations and 2880 comparisons, **0 mismatches** against the
+oracle. End-to-end on `theta-with-handle`, `solve_exact` matches
+brute-force magnetic summation on **256 labelings (49 nonzero), 0
+mismatches**, and vanishes identically at `j_e != 0`.
+
+The expression grew three fields: `zeros` (labels forced to `j = 0`),
+`sqrt_num` and `sqrt_den` (labels contributing `sqrt(2j+1)` and its
+inverse).
+
+### A pre-existing evaluator bug this exposed
+
+Every emitted identity — 3j orthogonality for the bubble, Racah for the
+triangle, K1a/K1b for the loop — is derived **assuming the source
+vertex's triad exists**; and the final theta is folded into `theta_sign`
+as a `+-1` phase presuming the same. Where a triad fails the diagram is
+zero, but the emitted factors are not, so `evaluate_expr` returned `+-1`
+on vanishing diagrams.
+
+Measured on the **existing bubble fixture, with no k=1 move involved**:
+**186 of 729 labelings wrong**. The shipped tests happened to pick valid
+labelings. `replay` now records the input triads and the final theta's
+labels, and `evaluate_expr` enforces the 3j conditions (integral triad
+sum plus triangle inequality) — the theta check inside the summation,
+since its labels may be summation variables. The same sweep is now
+**0 of 729**.
+
+## Not yet handled

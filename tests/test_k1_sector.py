@@ -10,11 +10,16 @@ separation must carry j = 0. Two lemmas, both oracle-verified
 Loop excision fuses them. Bridge cut needs the multi-component state
 model and is the next PR.
 """
+import itertools
+import math
+
 import pytest
+from sympy import S
 
 import yutsis.oriented as O
 from yutsis.graph import Graph
 from yutsis.moves import excise_loop, interchanges
+from yutsis.oracle import ClosedDiagram
 from yutsis.search import is_goal, optimal_cost, solve, successors
 
 THETA_WITH_HANDLE = Graph([(1, 2, "a"), (1, 2, "b"), (1, 3, "c"),
@@ -122,16 +127,84 @@ def test_dumbbell_is_an_honest_dead_end_not_a_false_goal():
     assert optimal_cost(d) is None
 
 
-@pytest.mark.xfail(strict=True,
-                   reason="exact layer: loop excision has no oriented "
-                          "counterpart yet, so theta_sign still meets a "
-                          "non-theta and raises. Lands with the phase "
-                          "derivation.")
-def test_exact_path_handles_the_handle():
-    edges = {"a": ("1", "2"), "b": ("1", "2"), "c": ("1", "3"),
-             "d": ("2", "3"), "e": ("3", "4"), "f": ("4", "5"),
-             "g": ("4", "6"), "h": ("5", "6"), "i": ("5", "6")}
-    verts = {"1": ("a", "b", "c"), "2": ("a", "b", "d"),
-             "3": ("c", "d", "e"), "4": ("e", "f", "g"),
-             "5": ("f", "h", "i"), "6": ("g", "h", "i")}
-    O.solve_exact(O.OGraph(edges, verts))
+# --- the exact layer --------------------------------------------------
+
+HANDLE_EDGES = {"a": ("1", "2"), "b": ("1", "2"), "c": ("1", "3"),
+                "d": ("2", "3"), "e": ("3", "4"), "f": ("4", "5"),
+                "g": ("4", "6"), "h": ("5", "6"), "i": ("5", "6")}
+HANDLE_VERTS = {"1": ("a", "b", "c"), "2": ("a", "b", "d"),
+                "3": ("c", "d", "e"), "4": ("e", "f", "g"),
+                "5": ("f", "h", "i"), "6": ("g", "h", "i")}
+
+
+def _oracle(og, js):
+    return ClosedDiagram({lab: (t, h, js[lab])
+                          for lab, (t, h) in og.edges.items()},
+                         og.verts).value()
+
+
+def test_exact_loop_excision_canonical_phase_is_plus_one():
+    """Measured, not assumed: the canonical tadpole
+    (v slots (k,k,c), c: v->w, a and b tailed at w) excises with factor
+    exactly sqrt(2k+1)/sqrt(2a+1) and NO residual sign."""
+    og = O.OGraph({"k": ("v", "v"), "c": ("v", "w"), "a": ("w", "x"),
+                   "b": ("w", "y"), "p": ("x", "y"), "q": ("x", "y")},
+                  {"v": ("k", "k", "c"), "w": ("c", "a", "b"),
+                   "x": ("a", "p", "q"), "y": ("b", "p", "q")})
+    new_og, phase, zero, (da, db), snum, sden = O.excise_loop_exact(og, "v")
+    assert (zero, snum, sden) == ("c", "k", "a")
+    assert {da, db} == {"a", "b"}
+    js = {"k": S(1), "c": S(0), "a": S(1), "b": S(1),
+          "p": S(1), "q": S(1)}
+    assert phase.evaluate(js) == 1
+
+
+@pytest.mark.parametrize("wslots", [("c", "a", "b"), ("a", "c", "b"),
+                                    ("a", "b", "c")])
+@pytest.mark.parametrize("flip", ["c", "a", "b", None])
+def test_exact_loop_excision_matches_oracle_in_every_configuration(
+        wslots, flip):
+    """The normalization must reproduce the oracle for any slot order and
+    any orientation, not just the canonical patch. (The full 576-config
+    x 5-labeling sweep runs 0 mismatches; this is the CI slice.)"""
+    ends = {"c": ("v", "w"), "a": ("w", "x"), "b": ("w", "y")}
+    if flip:
+        ends[flip] = ends[flip][::-1]
+    og = O.OGraph({"k": ("v", "v"), **ends,
+                   "p": ("x", "y"), "q": ("x", "y")},
+                  {"v": ("k", "k", "c"), "w": wslots,
+                   "x": ("a", "p", "q"), "y": ("b", "p", "q")})
+    new_og, phase, _z, _d, snum, sden = O.excise_loop_exact(og, "v")
+    for k, a, p, q in [(S(1), S(1), S(1), S(1)),
+                       (S(1)/2, S(1), S(1)/2, S(1)/2),
+                       (S(3)/2, S(1)/2, S(1), S(1)/2)]:
+        js = {"k": k, "c": S(0), "a": a, "b": a, "p": p, "q": q}
+        before, after = _oracle(og, js), _oracle(new_og, js)
+        factor = math.sqrt(float(2 * k + 1)) / math.sqrt(float(2 * a + 1))
+        assert abs(before - phase.evaluate(js) * factor * after) < 1e-9
+
+
+def test_handle_fully_signed_vs_oracle():
+    """End-to-end: the k=1 path emits a formula that matches brute-force
+    magnetic summation across the labeling grid."""
+    og = O.OGraph(HANDLE_EDGES, HANDLE_VERTS)
+    expr = O.solve_exact(og)
+    assert expr is not None
+    assert expr["zeros"] == ["e"]          # the j = 0 forcing
+    assert expr["sqrt_num"] and expr["sqrt_den"]
+    nonzero = 0
+    for a, c, f, h in itertools.product([S(1)/2, S(1), S(3)/2], repeat=4):
+        js = dict(a=a, b=a, c=c, d=c, e=S(0), f=f, g=f, h=h, i=h)
+        got, want = O.evaluate_expr(expr, js), _oracle(og, js)
+        assert abs(got - want) < 1e-9, js
+        nonzero += abs(want) > 1e-12
+    assert nonzero > 0, "grid degenerate -- all labelings vanished"
+
+
+def test_exact_formula_vanishes_off_j_zero():
+    og = O.OGraph(HANDLE_EDGES, HANDLE_VERTS)
+    expr = O.solve_exact(og)
+    js = dict(a=S(1)/2, b=S(1)/2, c=S(1), d=S(1), e=S(1),
+              f=S(1), g=S(1), h=S(1)/2, i=S(1)/2)
+    assert O.evaluate_expr(expr, js) == 0.0
+    assert abs(_oracle(og, js)) < 1e-12
