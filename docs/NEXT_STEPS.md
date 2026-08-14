@@ -42,28 +42,42 @@ shared-label sparsity.
 Closure criterion: write the merge lemma into the docs, with the
 boundary conditions, and reference it from Graph.canonical().
 
-## Finding 3 — girth-5 wall (open, and the deepest)
+## Finding 3 — girth-5 wall (prong 1 CLOSED in v0.6.1)
 
-Cycle-targeted moves retired the wall at a price: A* is optimal only
-within the restricted move class, and the Van Dyck-Fack counter-example
-is standing evidence that girth-guided orderings can miss global
-optima. Concretely: we do not know whether Petersen's minimum is three
-summations or two.
+**Petersen is certified: the minimum is three summations, not two.**
 
-Three prongs, ascending in ambition:
+Uniform-cost search (`h = 0`) over the *blind* move set gives
+`C*(Petersen) = 37`. Since `cost = (n-2)/2 - B + 11*S` (Lemma 0,
+docs/BOUNDS.md), any two-summation reduction would cost at most `26`.
+It costs `37`, so `S = 2` is impossible and the shipped `7` 6j / `3`
+sums formula is optimal — over the FULL move set, not merely the
+cycle-targeted class. Confirmed three ways: uniform-cost (37), blind-move
+A* (37, 7 sixj, 3 sums, 18 expansions), shipped targeted A* (37, 11
+expansions).
 
-1. Certify or refute Petersen: run blind-move A* to completion with
-   better pruning, or locate the minimal 15j form in the literature.
-2. Build the RIGHT admissible bound: the minimum number of surviving
-   summation variables in evaluating a spin network is governed by
-   treewidth-family invariants — the same mathematics that governs
-   tensor-network contraction complexity. A treewidth-derived h would
-   be dramatically tighter than the girth test, would likely make
-   blind-move A* tractable again (restoring provable optimality and
-   mooting the move restriction), and would formally marry this
-   project to the tensor-network literature. Highest value per effort
-   of anything on this page: it certifies Petersen, restores
-   optimality, and builds the tensor-network bridge in one stroke.
+The premise of the wall was stale. "Petersen defeats both A* and
+weighted greedy under blind flips" was measured in v0.4.0, *before*
+nauty canonicalization landed in v0.5.0. Because the search dedups on
+anonymous topology, nauty collapsed the blind state space: blind-move
+A* now solves Petersen in 18 expansions and 0.0 s. The move restriction
+was never load-bearing for this benchmark, and nobody re-measured after
+the thing that fixed it. **Re-run the benchmark that justified a
+workaround after changing anything upstream of it.**
+
+What remains:
+
+1. ~~Certify or refute Petersen~~ — done, see above.
+2. Build the RIGHT admissible bound. The summation term is still the
+   v0.6.0 girth test: it returns `S >= 1` whether the truth is one flip
+   or five, so it bounds Petersen at `S >= 1` against a certified
+   `S = 3`. The motivation is now scaling rather than Petersen — larger
+   graphs where blind-move A* does *not* collapse. Note the redirect:
+   for cubic graphs the natural invariants are **edge**-separator ones
+   (carving width, branchwidth), not vertex treewidth, because the
+   `(k-3)` calculus lives natively on edge cuts. Empirically, a plain
+   treewidth bound is also *weaker* than the girth test here: prism and
+   K3,3 both have treewidth 3 but `S = 0` and `S = 1` respectively, so
+   treewidth alone cannot separate them.
 3. The synthesis: a learned ORDERING over the full move set with an
    exact-search fallback — completeness never sacrificed, only
    expedited.
@@ -80,8 +94,21 @@ Three prongs, ascending in ambition:
 
 ## Suggested order of attack
 
-1. Treewidth-derived admissible bound (closes the most, builds the
-   bridge, likely certifies Petersen)
+1. Edge-separator (carving/branchwidth) summation bound. Petersen no
+   longer motivates it — that is certified — so the target is now
+   scaling: sizes where blind-move A* does not collapse. Must be a
+   LOWER bound on the width invariant; upper-bound estimators
+   (min-fill, min-degree), which the tensor-network literature reaches
+   for first, are unsafe here. Prerequisite lesson from v0.6.1: handle
+   self-loop and bridge states properly rather than scoring them 0, or
+   the potential-function proof will fail the same way again.
 2. Merge lemma (an afternoon)
 3. Learned heuristic beyond 1-WL (a real ML project; the natural
    follow-on paper)
+
+## Standing lesson from v0.6.1
+
+The girth-5 wall was retired by nauty in v0.5.0 and nobody noticed for
+two versions, because the benchmark that justified the workaround was
+never re-run. **Re-run the benchmark that justified a workaround after
+changing anything upstream of it.**

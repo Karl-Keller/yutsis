@@ -5,7 +5,8 @@ magnetic-sum oracle (yutsis.oracle) as numerical ground truth.
 """
 from .graph import Graph
 from .search import solve, heuristic, SUM_PENALTY
-from . import benchmarks, oracle, phase, oriented, circuits
+from . import benchmarks, bounds, oracle, phase, oriented, circuits
 
-__version__ = "0.6.0"
-__all__ = ["Graph", "solve", "heuristic", "SUM_PENALTY", "benchmarks", "oracle", "phase"]
+__version__ = "0.6.1"
+__all__ = ["Graph", "solve", "heuristic", "SUM_PENALTY", "bounds",
+           "benchmarks", "oracle", "phase"]
