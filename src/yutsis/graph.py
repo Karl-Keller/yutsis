@@ -99,6 +99,90 @@ class Graph:
         cyc = self.girth_cycle()
         return len(cyc) if cyc else float("inf")
 
+    def components(self):
+        """Vertex sets of the connected components.
+
+        Bridge cut splits a closed diagram into two independent closed
+        diagrams, so states stopped being connected in v0.8.0."""
+        from collections import deque
+        seen, out = set(), []
+        for start in sorted(self.adj):
+            if start in seen:
+                continue
+            comp, dq = {start}, deque([start])
+            seen.add(start)
+            while dq:
+                for w, _lab, _i in self.adj[dq.popleft()]:
+                    if w not in seen:
+                        seen.add(w)
+                        comp.add(w)
+                        dq.append(w)
+            out.append(frozenset(comp))
+        return out
+
+    def component_graphs(self):
+        """Each component as a Graph in its own right."""
+        return [Graph([(u, v, lab) for u, v, lab in self.edges if u in comp])
+                for comp in self.components()]
+
+    def bridges(self):
+        """Labels of edges whose removal disconnects (1-line cuts).
+
+        A bridge forces j = 0: a closed diagram is a rotational scalar,
+        so a single line crossing a separation carries no angular
+        momentum (docs/K1_SECTOR.md)."""
+        from collections import deque
+        base = len(self.components())
+        out = []
+        for i, (u, _v, lab) in enumerate(self.edges):
+            adj = {}
+            for k, (a, b, _l) in enumerate(self.edges):
+                if k == i:
+                    continue
+                adj.setdefault(a, []).append(b)
+                adj.setdefault(b, []).append(a)
+            seen, dq = {u}, deque([u])
+            while dq:
+                for w in adj.get(dq.popleft(), []):
+                    if w not in seen:
+                        seen.add(w)
+                        dq.append(w)
+            comp_of_u = next(c for c in self.components() if u in c)
+            if len(seen) != len(comp_of_u):
+                out.append(lab)
+        return out
+
+    def cuttable_bridges(self):
+        """Bridges whose endpoints are not tadpole vertices.
+
+        Capping a tadpole endpoint would merge a self-loop's two ends
+        into a bare circle with no vertices -- the empty diagram, which
+        is deliberately NOT a state. That configuration is the dumbbell,
+        handled as a terminal instead (see is_dumbbell)."""
+        loops = set(self.self_loops())
+        out = []
+        for lab in self.bridges():
+            u, v = next((a, b) for a, b, l in self.edges if l == lab)
+            if u == v or u in loops or v in loops:
+                continue
+            out.append(lab)
+        return out
+
+    def is_dumbbell(self):
+        """Two tadpoles joined by a bridge: an irreducible k=1 terminal.
+
+        Value sqrt(2k+1)*sqrt(2f+1)*delta(c,0). Two vertices and three
+        edges like a theta, which is why the pre-v0.7.0 goal test
+        (`n <= 2`) accepted it and dropped the j=0 constraint."""
+        if self.n != 2 or len(self.edges) != 3:
+            return False
+        return len(self.self_loops()) == 2
+
+    def is_terminal(self):
+        """Every component is irreducible: a theta or a dumbbell."""
+        return all(c.is_theta() or c.is_dumbbell()
+                   for c in self.component_graphs())
+
     def is_theta(self):
         """Two vertices joined by three parallel edges: the true goal.
 

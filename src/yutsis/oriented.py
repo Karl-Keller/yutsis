@@ -303,6 +303,129 @@ def excise_loop_exact(og: OGraph, v):
     return OGraph(new_edges, new_verts), phase, c, (a, b), k, a
 
 
+def cut_bridge_exact(og: OGraph, lab):
+    """Canonical bridge (e: u->w, u slots (a,b,e) with a,b tailed at u,
+    w slots (c,d,e) with c,d tailed at w) cuts with factor
+
+        delta(e,0) * delta(a,b) * delta(c,d)
+                                  / (sqrt(2a+1) * sqrt(2c+1))
+
+    and phase EXACTLY +1 -- measured against the oracle, no residual
+    sign to fit (docs/K1_SECTOR.md). It is the cap rule K1b applied at
+    both ends, and it SPLITS the state into two independent closed
+    diagrams.
+
+    Returns (new_OGraph, PhaseExpr, zero_label, (delta_u, delta_w),
+    (sqrt_den_u, sqrt_den_w))."""
+    if lab not in og.edges:
+        return None
+    u, w = og.edges[lab]
+    if u == w:
+        return None
+    su, sw = og.verts.get(u), og.verts.get(w)
+    if su is None or sw is None or lab not in su or lab not in sw:
+        return None
+    ab = [s for s in su if s != lab]
+    cd = [s for s in sw if s != lab]
+    if len(ab) != 2 or len(cd) != 2 or len(set(ab)) != 2 or len(set(cd)) != 2:
+        return None          # tadpole endpoint: the dumbbell, not this
+    a, b = ab
+    c, d = cd
+
+    phase = PhaseExpr()
+    for vid, slots, want in ((u, su, (a, b, lab)), (w, sw, (c, d, lab))):
+        perm = tuple(slots.index(x) for x in want)
+        inv = sum(1 for i in range(3) for j in range(i + 1, 3)
+                  if perm[i] > perm[j])
+        if inv % 2:
+            phase.add_triad(list(slots))
+    if og.edges[lab][0] != u:
+        phase.add_2j(lab)
+    for end, labels in ((u, (a, b)), (w, (c, d))):
+        for x in labels:
+            if og.edges[x][0] != end:
+                phase.add_2j(x)
+
+    new_edges = {k: v for k, v in og.edges.items()
+                 if k not in (lab, a, b, c, d)}
+    for end, keep_lab, other in ((u, a, b), (w, c, d)):
+        tk, hk = og.edges[keep_lab]
+        far_keep = tk if hk == end else hk
+        to, ho = og.edges[other]
+        far_other = to if ho == end else ho
+        new_edges[keep_lab] = (far_keep, far_other)
+    new_verts = {}
+    for vid, slots in og.verts.items():
+        if vid in (u, w):
+            continue
+        new_verts[vid] = tuple(a if s == b else (c if s == d else s)
+                               for s in slots)
+    return (OGraph(new_edges, new_verts), phase, lab, ((a, b), (c, d)),
+            (a, c))
+
+
+def og_components(og: OGraph):
+    """Split an OGraph into its connected components.
+
+    States stopped being connected when bridge cut arrived."""
+    adj = {}
+    for lab, (t, h) in og.edges.items():
+        adj.setdefault(t, set()).add(h)
+        adj.setdefault(h, set()).add(t)
+    seen, out = set(), []
+    for start in sorted(og.verts):
+        if start in seen:
+            continue
+        comp, stack = {start}, [start]
+        seen.add(start)
+        while stack:
+            for w in adj.get(stack.pop(), ()):
+                if w not in seen:
+                    seen.add(w)
+                    comp.add(w)
+                    stack.append(w)
+        edges = {lab: (t, h) for lab, (t, h) in og.edges.items()
+                 if t in comp}
+        out.append(OGraph(edges, {v: og.verts[v] for v in comp}))
+    return out
+
+
+def dumbbell_factor(og: OGraph):
+    """Value of an irreducible dumbbell component: two tadpoles joined
+    by a bridge.
+
+        sqrt(2k+1) * sqrt(2f+1) * delta(c,0)
+
+    with phase +1 in canonical slot order (v = (k,k,c), w = (c,f,f), c
+    tailed at v). Capping it would leave a bare circle with no vertices,
+    so it terminates instead -- the empty diagram is deliberately not a
+    state.
+
+    Returns (PhaseExpr, zero_label, (sqrt_num_k, sqrt_num_f))."""
+    loops = [lab for lab, (t, h) in og.edges.items() if t == h]
+    if og.n != 2 or len(og.edges) != 3 or len(loops) != 2:
+        return None
+    bridge = [lab for lab in og.edges if lab not in loops]
+    if len(bridge) != 1:
+        return None
+    c = bridge[0]
+    u, w = og.edges[c]
+    phase = PhaseExpr()
+    # each tadpole: move c out of the way, preserving the loop's two
+    # slots in order (that order carries its orientation)
+    for vid, target_index in ((u, 2), (w, 0)):
+        slots = og.verts[vid]
+        ci = list(slots).index(c)
+        # one transposition iff c must cross exactly one loop slot
+        if (target_index, ci) in ((2, 1), (0, 1)):
+            phase.add_triad(list(slots))
+    if og.edges[c][0] != u:
+        phase.add_2j(c)
+    k = [lab for lab in loops if lab in og.verts[u]][0]
+    f = [lab for lab in loops if lab in og.verts[w]][0]
+    return phase, c, (k, f)
+
+
 # ----------------------------------------------------------------------------
 # Exact interchange (edge flip) -- phase role-coefficients set by the
 # constrained fit against wigner_9j (see scripts/fit_flip_phase.py)
@@ -415,6 +538,10 @@ def replay(og: OGraph, moves):
             og, ph, zlab, d, snum, sden = excise_loop_exact(og, mv[1])
             zeros.append(zlab); deltas.append(d)
             sqrt_num.append(snum); sqrt_den.append(sden)
+        elif mv[0] == "bridge":
+            og, ph, zlab, (du, dw), (sdu, sdw) = cut_bridge_exact(og, mv[1])
+            zeros.append(zlab); deltas.extend((du, dw))
+            sqrt_den.extend((sdu, sdw))
         elif mv[0] == "tri":
             og, ph, args = reduce_triangle_exact(og, mv[1])
             sixjs.append(args)
@@ -423,12 +550,25 @@ def replay(og: OGraph, moves):
             og, ph, x, args, roles = interchange_exact(og, e, Ppl, Qql)
             sums.append(x); sixjs.append(args); flip_roles.append(roles)
         total = total * ph
-    total = total * theta_sign(og)
-    # The final theta is folded into theta_sign as a +-1 PHASE, which is
-    # correct only where the theta exists. Record its labels so the
-    # evaluator can enforce the 3j existence conditions; without this the
-    # formula returns +-1 on diagrams that genuinely vanish.
-    theta_labels = tuple(sorted(og.edges))
+    # Finalize every component: bridge cut splits the state, so the end
+    # of a reduction is a SET of irreducible diagrams -- thetas and
+    # dumbbells -- not a single theta.
+    thetas = []
+    for comp in og_components(og):
+        dumb = dumbbell_factor(comp)
+        if dumb is not None:
+            ph, zlab, (kk, ff) = dumb
+            total = total * ph
+            zeros.append(zlab)
+            sqrt_num.extend((kk, ff))
+            continue
+        total = total * theta_sign(comp)
+        # A theta is folded in as a +-1 PHASE, correct only where it
+        # exists. Record its labels so the evaluator can enforce the 3j
+        # conditions; without this the formula returns +-1 on diagrams
+        # that genuinely vanish.
+        thetas.append(tuple(sorted(comp.edges)))
+    theta_labels = thetas
     return {"phase": total, "deltas": deltas, "weights": weights,
             "sums": sums, "sixjs": sixjs, "flip_roles": flip_roles,
             "zeros": zeros, "sqrt_num": sqrt_num, "sqrt_den": sqrt_den,
@@ -499,9 +639,9 @@ def evaluate_expr(expr, jmap, xmax=None):
             # The final theta is folded into theta_sign as a +-1 phase,
             # which presumes it EXISTS. Checked here rather than at the
             # top because its labels may be summation variables.
-            theta = expr.get("theta")
-            if theta and not triad_ok(*(jm2[lab] for lab in theta)):
-                return 0.0
+            for theta in expr.get("theta") or ():
+                if not triad_ok(*(jm2[lab] for lab in theta)):
+                    return 0.0
             t = acc
             for args in expr["sixjs"]:
                 t *= s6(*[jm2[a] for a in args])

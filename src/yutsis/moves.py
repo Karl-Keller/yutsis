@@ -74,6 +74,48 @@ def excise_loop(g: Graph, v):
     return Graph(keep), fac, 0, 0, ("loop", v)
 
 
+def cut_bridge(g: Graph, lab):
+    """The k=1 move for a 1-line cut: force j = 0 and cap both ends.
+
+    A closed diagram is a rotational scalar, so the single line crossing
+    the separation carries no angular momentum. Applying the cap rule
+    K1b at each endpoint removes both and splits the diagram into two
+    INDEPENDENT closed diagrams:
+
+        delta(e,0) * delta(a,b) * delta(c,d)
+                                 / (sqrt(2a+1) * sqrt(2c+1))
+
+    Derivation and oracle verification: docs/K1_SECTOR.md. Canonical
+    orientations give phase exactly +1.
+
+    Free move (no 6j, no summation), n drops by 2 and the component
+    count rises by 1 -- so `yutsis.bounds.sum_bound` must test for it,
+    the same coupling loop excision introduced.
+
+    Guard: neither endpoint may be a tadpole vertex, since capping one
+    would merge a self-loop into a bare circle (the empty diagram, which
+    is not a state). That case is the dumbbell terminal."""
+    if lab not in g.cuttable_bridges():
+        return None
+    u, w = next((a, b) for a, b, x in g.edges if x == lab)
+    at_u = [(a, b, x) for a, b, x in g.edges if x != lab and u in (a, b)]
+    at_w = [(a, b, x) for a, b, x in g.edges if x != lab and w in (a, b)]
+    if len(at_u) != 2 or len(at_w) != 2:
+        return None
+    keep = [(a, b, x) for a, b, x in g.edges
+            if x != lab and u not in (a, b) and w not in (a, b)]
+    merged = []
+    for end, pair in ((u, at_u), (w, at_w)):
+        ends = [(b if a == end else a, x) for a, b, x in pair]
+        (p, lp), (q, _lq) = ends
+        merged.append((p, q, lp))
+        keep.append((p, q, lp))
+    (_pa, _qa, la), (_pc, _qc, lc) = merged
+    fac = (f"delta({lab},0)*cap({la})*cap({lc})"
+           f"/(sqrt(2*{la}+1)*sqrt(2*{lc}+1))")
+    return Graph(keep), fac, 0, 0, ("bridge", lab)
+
+
 def reduce_triangle(g: Graph, tri):
     """Contract a triangle, emitting its cap-tetrahedron 6j.
 

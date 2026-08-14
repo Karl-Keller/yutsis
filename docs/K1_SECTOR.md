@@ -123,17 +123,6 @@ a girth and both are correct at their actual jobs:
 
 Reach for `true_girth()`; the carving/branchwidth bound must.
 
-## Not yet handled
-
-- **Bridge cut.** A bridge forces `j = 0` and caps both ends, splitting
-  the diagram into two independent closed pieces — which today's
-  single-graph state model cannot represent. Two disjoint thetas are
-  currently a dead end: `is_goal` is false (`n = 4`), no move applies.
-  Needs `is_goal` generalized to "every component is a theta", Lemma 0's
-  accounting to `(n - 2C)/2`, and the bounds taken per component. Next
-  PR.
-- **The dumbbell terminal**, for the same reason (bare circle = empty
-  diagram).
 ## The exact layer (v0.7.1)
 
 `excise_loop_exact` completes the move. The canonical patch — `v` slots
@@ -179,4 +168,80 @@ sum plus triangle inequality) — the theta check inside the summation,
 since its labels may be summation variables. The same sweep is now
 **0 of 729**.
 
+## Bridge cut and the dumbbell terminal (v0.8.0)
+
+### Bridge cut
+
+A bridge is a 1-line cut, so its edge carries `j = 0` and the cap rule
+K1b applies at **both** ends:
+
+    delta(e,0) * delta(a,b) * delta(c,d) / (sqrt(2a+1) * sqrt(2c+1))
+
+phase exactly **+1** canonically (`e: u->w`, `u` slots `(a,b,e)` with
+`a,b` tailed at `u`, `w` slots `(c,d,e)` with `c,d` tailed at `w`).
+Measured, not assumed.
+
+It **splits** the diagram into two independent closed diagrams, which is
+why it needed the state model below.
+
+**Verified**: 0 mismatches over 4608 comparisons spanning every slot
+permutation and orientation of both endpoints.
+
+### The multi-component state model
+
+States stopped being connected. Three things generalized together:
+
+- `is_goal` is now `is_terminal()` — **every component** irreducible.
+  Previously `is_theta()`, which was correct but assumed one diagram;
+  two disjoint thetas were a dead end (`n = 4`, no move applicable).
+- Lemma 0's accounting becomes `(n - 2C - 2X)/2` for `C` components and
+  `X` bridge cuts (docs/BOUNDS.md). For a connected input reduced
+  without bridge cuts this is the original `(n-2)/2`, which is why
+  every benchmark cost is unchanged.
+- `replay` finalizes each component separately, so a reduction ends in a
+  **set** of irreducible diagrams; `expr["theta"]` is a list.
+
+### The dumbbell terminal
+
+The loop-to-loop case — two tadpoles joined by a bridge — is
+irreducible: capping either end would merge a self-loop's two ends into
+a **bare circle with no vertices**. Rather than make the empty diagram a
+first-class state, the dumbbell terminates with its own factor:
+
+    sqrt(2k+1) * sqrt(2f+1) * delta(c,0)
+
+phase +1 canonically. Both loop excision and bridge cut are guarded off
+this configuration, so it is reached rather than mangled.
+
+**Verified**: 0 mismatches over 162 comparisons across slot
+permutations, bridge orientation and labelings; and `solve_exact` on a
+bare dumbbell reproduces the oracle exactly (it is a zero-move terminal
+whose entire value is the factor above).
+
+### The coupling, third time
+
+Bridge cut is a **free** move, so `sum_bound` tests
+`cuttable_bridges()` alongside `bubbles()`, `triangles()` and
+`excisable_loops()` — in the same commit, as ever.
+
+## What the k=1 sector cost the opt-in bound
+
+Re-certified after the move set was completed: the decomposition bound
+now has **8** admissibility violations (7 after loop excision, 0 before
+the sector). The shipped heuristic remains at **0** violations and **0**
+step violations over 46,005 moves.
+
+Worth noting what the sector did to the corpus itself: reachable states
+grew 786 -> 910, and states with a **computable** optimum grew 75 -> 135,
+because configurations that used to be dead ends now terminate.
+
 ## Not yet handled
+
+- **The bare circle (empty diagram)** is deliberately NOT a state. The
+  one configuration that would produce it -- capping a tadpole -- is the
+  dumbbell, handled as a terminal instead. If a future move ever needs
+  an empty component, this is the decision to revisit.
+- **The opt-in decomposition bound is inadmissible** under the completed
+  move set (8 violations). Re-deriving it now that degenerate states are
+  dissolved is the entry point for the carving/branchwidth work --
+  docs/BOUNDS.md and docs/NEXT_STEPS.md.

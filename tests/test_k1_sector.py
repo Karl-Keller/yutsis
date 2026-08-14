@@ -1,4 +1,4 @@
-"""The k=1 sector: loop excision, and the terminal it does not yet reach.
+"""The k=1 sector, complete: loop excision, bridge cut, dumbbell terminal.
 
 A closed diagram is a rotational scalar, so a single line crossing a
 separation must carry j = 0. Two lemmas, both oracle-verified
@@ -7,8 +7,10 @@ separation must carry j = 0. Two lemmas, both oracle-verified
     K1a  sum_m (-1)^(k-m) 3j(k k c; m -m mc) = sqrt(2k+1) d(c,0) d(mc,0)
     K1b  3j(a b 0; ma mb 0) = d(a,b) d(ma,-mb) (-1)^(a-ma)/sqrt(2a+1)
 
-Loop excision fuses them. Bridge cut needs the multi-component state
-model and is the next PR.
+Loop excision fuses them at a tadpole; bridge cut applies K1b at both
+ends of a 1-cut, SPLITTING the diagram; the dumbbell (loop-to-loop) is
+irreducible and terminates with its own factor rather than reducing to
+a bare circle.
 """
 import itertools
 import math
@@ -18,7 +20,7 @@ from sympy import S
 
 import yutsis.oriented as O
 from yutsis.graph import Graph
-from yutsis.moves import excise_loop, interchanges
+from yutsis.moves import cut_bridge, excise_loop, interchanges
 from yutsis.oracle import ClosedDiagram
 from yutsis.search import is_goal, optimal_cost, solve, successors
 
@@ -43,27 +45,46 @@ def test_theta_with_handle_is_a_legitimate_closed_diagram():
 
 # --- what loop excision fixed ----------------------------------------
 
-def test_goal_test_accepts_only_a_true_theta():
-    """Regression for the silent-wrong-answer bug: the dumbbell has two
-    vertices and three edges but is NOT the goal."""
+def test_goal_test_distinguishes_theta_from_dumbbell():
+    """The dumbbell has two vertices and three edges like a theta, which
+    is how `n <= 2` accepted it while dropping its j=0 constraint. It is
+    terminal (v0.8.0) but it is NOT a theta, and it carries its own
+    factor."""
     d = DUMBBELL_OF_TADPOLES
     assert d.n == 2 and len(d.edges) == 3
-    assert not is_goal(d)
     assert not d.is_theta()
-    assert is_goal(Graph([(1, 2, "x"), (1, 2, "y"), (1, 2, "z")]))
+    assert d.is_dumbbell()
+    assert is_goal(d)                      # terminal, with its own value
+    theta = Graph([(1, 2, "x"), (1, 2, "y"), (1, 2, "z")])
+    assert theta.is_theta() and not theta.is_dumbbell()
+    assert is_goal(theta)
+
+
+def test_goal_is_a_property_of_every_component():
+    """Bridge cut splits the diagram, so the goal is per-component. Two
+    disjoint thetas used to be a dead end: is_goal was false (n = 4) and
+    no move applied."""
+    two_thetas = Graph([(1, 2, "a"), (1, 2, "b"), (1, 2, "c"),
+                        (3, 4, "d"), (3, 4, "e"), (3, 4, "f")])
+    assert len(two_thetas.components()) == 2
+    assert two_thetas.is_terminal()
+    assert is_goal(two_thetas)
+    mixed = Graph([(1, 2, "a"), (1, 2, "b"), (1, 2, "c"),
+                   (3, 3, "d"), (3, 4, "e"), (4, 4, "f")])
+    assert is_goal(mixed)                  # a theta plus a dumbbell
 
 
 def test_handle_reduces_and_the_formula_carries_the_k1_constraints():
     """Previously this terminated on the dumbbell at cost 0 with two
-    deltas and every j=0 constraint dropped. Now it reduces to a true
-    theta and the formula states the k=1 physics explicitly."""
+    deltas and every j=0 constraint dropped. With bridge cut it reduces
+    in ONE move -- the bridge e is cut directly, splitting the diagram
+    into two thetas -- and states the k=1 physics explicitly."""
     r = solve(THETA_WITH_HANDLE)
     assert r is not None and not r["timeout"]
-    assert [m[0] for m in r["moves"]] == ["bubble", "loop"]
+    assert [m[0] for m in r["moves"]] == ["bridge"]
     factors = " ".join(r["factors"])
-    assert "loopw(" in factors        # the sqrt(2k+1) tadpole weight
-    assert "delta(e,0)" in factors    # the j = 0 forcing (K1a)
-    assert "sqrt(" in factors         # the 1/sqrt(2a+1) cap (K1b)
+    assert "delta(e,0)" in factors    # the j = 0 forcing
+    assert "sqrt(" in factors         # the two caps (K1b)
     assert r["sixj"] == 0 and r["sums"] == 0   # k=1 moves are FREE
 
 
@@ -112,19 +133,76 @@ def test_the_other_two_girth_functions_stay_as_they_are_by_design():
     assert len(g.girth_cycle()) != 1   # skips the self-loop edge
 
 
-# --- what is NOT fixed yet -------------------------------------------
+# --- the dumbbell terminal -------------------------------------------
 
-def test_dumbbell_is_an_honest_dead_end_not_a_false_goal():
-    """The loop-to-loop case is an irreducible k=1 terminal: capping it
-    leaves a bare circle with no vertices, which needs the empty-diagram
-    state model arriving with bridge cut. Until then it is a dead end --
-    a loud failure rather than a silent wrong answer."""
+def test_dumbbell_is_a_terminal_with_its_own_value():
+    """The loop-to-loop case is irreducible: capping it would leave a
+    bare circle with no vertices. Rather than make the empty diagram a
+    state, it terminates and carries the factor
+    sqrt(2k+1)*sqrt(2f+1)*delta(c,0)."""
     d = DUMBBELL_OF_TADPOLES
     assert d.self_loops() == ["3", "4"]
-    assert d.excisable_loops() == []      # guarded, not mishandled
-    assert successors(d, blind=True) == []
-    assert solve(d) is None
-    assert optimal_cost(d) is None
+    assert d.excisable_loops() == []      # loop excision stays guarded
+    assert d.cuttable_bridges() == []     # and so does bridge cut
+    assert d.is_dumbbell()
+    assert solve(d)["cost"] == 0          # terminal, reached at no cost
+    assert optimal_cost(d) == 0
+
+
+def test_dumbbell_factor_matches_the_oracle():
+    """Phase +1 canonically, verified across slot orders and the bridge
+    orientation. (Full sweep: 0 mismatches / 162.)"""
+    for vslots in [("k", "k", "c"), ("k", "c", "k"), ("c", "k", "k")]:
+        og = O.OGraph({"k": ("v", "v"), "f": ("w", "w"), "c": ("v", "w")},
+                      {"v": vslots, "w": ("c", "f", "f")})
+        phase, zero, (kk, ff) = O.dumbbell_factor(og)
+        assert zero == "c" and {kk, ff} == {"k", "f"}
+        for k, f in itertools.product([S(1)/2, S(1), S(3)/2], repeat=2):
+            js = {"k": k, "f": f, "c": S(0)}
+            want = _oracle(og, js)
+            got = (phase.evaluate(js) * math.sqrt(float(2 * k + 1))
+                   * math.sqrt(float(2 * f + 1)))
+            assert abs(want - got) < 1e-9
+
+
+# --- bridge cut -------------------------------------------------------
+
+def test_bridge_cut_splits_into_two_closed_diagrams():
+    g = THETA_WITH_HANDLE
+    assert g.cuttable_bridges() == ["e"]
+    ng, fac, d6, ds, desc = cut_bridge(g, "e")
+    assert (d6, ds) == (0, 0)             # free move
+    assert desc == ("bridge", "e")
+    assert ng.n == g.n - 2
+    assert len(ng.components()) == 2      # the split
+    assert ng.is_terminal()               # both halves are thetas
+
+
+@pytest.mark.parametrize("uslots", [("a", "b", "e"), ("e", "a", "b"),
+                                    ("b", "a", "e")])
+@pytest.mark.parametrize("flip", ["e", "a", "c", None])
+def test_bridge_cut_exact_matches_oracle(uslots, flip):
+    """(Full sweep: 0 mismatches / 4608 comparisons over every slot
+    permutation and orientation.)"""
+    ends = {"e": ("u", "w"), "a": ("u", "x"), "b": ("u", "y"),
+            "c": ("w", "r"), "d": ("w", "z")}
+    if flip:
+        ends[flip] = ends[flip][::-1]
+    og = O.OGraph({**ends, "p": ("x", "y"), "q": ("x", "y"),
+                   "s": ("r", "z"), "t": ("r", "z")},
+                  {"u": uslots, "w": ("c", "d", "e"),
+                   "x": ("a", "p", "q"), "y": ("b", "p", "q"),
+                   "r": ("c", "s", "t"), "z": ("d", "s", "t")})
+    new_og, phase, zero, _deltas, (sda, sdc) = O.cut_bridge_exact(og, "e")
+    assert zero == "e"
+    for a, c, p in [(S(1), S(1), S(1)), (S(1), S(1)/2, S(1)/2),
+                    (S(3)/2, S(1), S(1))]:
+        js = {"e": S(0), "a": a, "b": a, "c": c, "d": c,
+              "p": p, "q": p, "s": S(1), "t": S(1)}
+        before, after = _oracle(og, js), _oracle(new_og, js)
+        factor = 1.0 / (math.sqrt(float(2 * js[sda] + 1))
+                        * math.sqrt(float(2 * js[sdc] + 1)))
+        assert abs(before - phase.evaluate(js) * factor * after) < 1e-9
 
 
 # --- the exact layer --------------------------------------------------
@@ -191,7 +269,8 @@ def test_handle_fully_signed_vs_oracle():
     expr = O.solve_exact(og)
     assert expr is not None
     assert expr["zeros"] == ["e"]          # the j = 0 forcing
-    assert expr["sqrt_num"] and expr["sqrt_den"]
+    assert expr["sqrt_den"]                # the two caps
+    assert len(expr["theta"]) == 2         # split into two thetas
     nonzero = 0
     for a, c, f, h in itertools.product([S(1)/2, S(1), S(3)/2], repeat=4):
         js = dict(a=a, b=a, c=c, d=c, e=S(0), f=f, g=f, h=h, i=h)
