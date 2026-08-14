@@ -20,7 +20,7 @@ trusted on inspection.
 ## Install
 
     pip install -e ".[dev,perf]"   # perf pulls pynauty for fast canonicalization
-    pytest -q                      # 74 tests: oracles, theorems, bounds, k=1, compiler
+    pytest -q                      # 89 tests: oracles, theorems, bounds, k=1, compiler
     python -m yutsis               # benchmark reductions
 
 ## Showcase: the Petersen graph (a 15j symbol)
@@ -49,7 +49,7 @@ assignments — to 1e-9. Run it yourself:
 
     python scripts/verify_petersen.py
 
-## Verified results (v0.7.1)
+## Verified results (v0.8.0)
 
 - **The k=1 sector, half closed** (`yutsis.moves.excise_loop`,
   [docs/K1_SECTOR.md](docs/K1_SECTOR.md)): a closed diagram is a
@@ -128,22 +128,20 @@ analysis in [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md)):
    for cubic graphs the live invariants are **edge**-separator ones
    (carving width, branchwidth), not vertex treewidth, since the
    `(k-3)` calculus lives on edge cuts.
-4. **The k=1 sector** (half closed in v0.7.0). Self-loops and bridges
-   are the `k = 1` case of the separation calculus: a single line
-   crossing a cut must carry `j = 0`. **Loop excision** now exists —
-   derived from two oracle-verified lemmas and fused into one move
-   ([docs/K1_SECTOR.md](docs/K1_SECTOR.md)) — closing a real silent
-   incorrectness: `solve()` used to terminate on two tadpoles joined by
-   a bridge (accepted because `is_goal` was `n <= 2`) and emit a formula
-   with every `j = 0` constraint dropped. The goal test is now a true
-   theta, `true_girth()` is the one function that sees 1-cycles, and
-   the move is exact: phase measured at +1 canonically, 0 mismatches
-   over all 576 slot/orientation configurations. Fixing the evaluator
-   for it also caught a **pre-existing** bug — the 3j triad conditions
-   were never enforced, so the formula reported ±1 on vanishing
-   diagrams (186 of 729 labelings wrong on an existing fixture).
-   **Bridge cut remains open**: it splits the diagram into two closed
-   pieces, which the single-graph state model cannot represent
+4. **The k=1 sector** (closed in v0.8.0). Self-loops and bridges are
+   the `k = 1` case of the separation calculus: a single line crossing
+   a cut must carry `j = 0`. All three pieces now exist, each derived
+   and oracle-verified before implementation
+   ([docs/K1_SECTOR.md](docs/K1_SECTOR.md)) — **loop excision**
+   (0 mismatches / 2880 comparisons), **bridge cut** (0 / 4608), and
+   the **dumbbell terminal** (0 / 162). Bridge cut splits a diagram in
+   two, so states are now multi-component and the goal is a property of
+   every component. This closed a silent incorrectness — `solve()` used
+   to terminate on two tadpoles joined by a bridge and emit a formula
+   with every `j = 0` constraint dropped — and exposed two further bugs:
+   the flip was unguarded against self-loop legs, and the evaluator
+   never enforced the 3j triad conditions (186 of 729 labelings wrong on
+   an existing fixture, no k=1 move involved)
 
 Broader roadmap: cost-aware associahedron search and Qiskit emission in
 `yutsis.circuits`; qudit generalization; general n-line separator cuts;

@@ -18,6 +18,19 @@ The three moves act on `n` and emit factors as follows:
 | triangle contraction | `n - 2` | 1 | 0 |
 | interchange (flip) | `n` | 1 | 1 |
 
+**Generalized for the k=1 sector (v0.8.0).** Two more moves remove
+vertices for free: loop excision (`n-2`, components unchanged) and
+bridge cut (`n-2`, components **+1**). Writing `C` for the number of
+components and `X` for the number of bridge cuts, the goal is one
+irreducible diagram per component (`n = 2C_final`,
+`C_final = C + X`), so the vertex-removing moves number
+
+    (n - 2C - 2X) / 2
+
+For a connected input reduced without bridge cuts (`C = 1`, `X = 0`)
+this is the original `(n-2)/2`, which is why every benchmark cost is
+unchanged. The rest of this section assumes that case.
+
 Only bubbles and triangles change `n`, each by exactly 2, and the goal
 has `n = 2`. So **every** complete reduction of `G` uses exactly
 `(n-2)/2` vertex-removing moves, split into `B` bubbles and `T`

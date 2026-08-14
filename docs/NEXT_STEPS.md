@@ -101,89 +101,50 @@ What remains:
    (min-fill, min-degree), which the tensor-network literature reaches
    for first, are unsafe here.
 
-   Entry conditions are in "The k=1 sector" below — that work comes
-   first, and may dissolve this bound's degenerate-state problem
-   outright.
+   **Entry condition now satisfied (v0.8.0).** The k=1 sector is closed:
+   loop excision, bridge cut and the dumbbell terminal dissolve the
+   degenerate states rather than scoring around them, and
+   `Graph.true_girth()` is the one function that sees 1-cycles. So the
+   decomposition bound can be re-derived and re-certified against the
+   completed move set.
 
-## The k=1 sector (do this before the width bound)
+   Note what the sector did to that bound in passing: it went from 0
+   admissibility violations to **8**, because each new free move lowers
+   `C*` below `(n_i-2)/2` per piece. Re-derivation must start from the
+   move set as it now stands, and must be re-certified in the same
+   commit as any further free move.
 
-Self-loops and bridges are not edge cases to be scored around. They are
-the **k = 1 sector of the separation calculus**, and the principled fix
-is physics, not special-casing.
+## The k=1 sector — CLOSED in v0.8.0
 
-The k-line anchor already covers `k = 2` (free, δ) and `k = 3` (free, 6j
-factorization). The engine has never needed `k = 1`, but it is equally
-exact: a closed diagram is a rotational scalar, so any single line
-crossing a separation must carry `j = 0`. A **bridge** therefore forces
-`δ(j,0)` and factorizes the diagram into two independent closed pieces;
-a **self-loop** is the same statement one step tighter — closing two
-legs of a vertex forces its third edge to zero, emitting a
-`sqrt(2j+1)`-type weight and a phase.
+Self-loops and bridges were never edge cases: they are the `k = 1` case
+of the separation calculus, where a single line crossing a cut must
+carry `j = 0`. All three pieces exist, each derived and oracle-verified
+before implementation (docs/K1_SECTOR.md):
 
-So the likely resolution of "handle degenerate states properly" is **two
-new moves — loop excision and bridge cut** — derived and oracle-validated
-like every move before them, phases included, which remove these states
-from the frontier rather than teaching the bound to score them. If they
-land properly the decomposition module needs no degenerate carve-out at
-all: the proof that failed on 310 moves may have no failing states left
-to fail on.
+- **loop excision** (v0.7.0 structural, v0.7.1 exact) — 0 mismatches
+  over 2880 comparisons
+- **bridge cut** (v0.8.0) — 0 over 4608; it splits the diagram, so
+  states are multi-component and the goal is a property of every
+  component
+- **the dumbbell terminal** (v0.8.0) — 0 over 162; the bare circle is
+  deliberately not a state
 
-### Opening move: the theta-with-handle completeness test
+Three bugs surfaced on the way, two of them pre-existing and unrelated
+to k=1:
 
-The engine is incomplete here *today*, on physically legitimate input.
-Verified on the closed diagram
+- `is_goal` was `n <= 2`, accepting two tadpoles joined by a bridge and
+  emitting a formula with every `j = 0` constraint dropped — silent
+  incorrectness on valid input;
+- `interchanges` was unguarded against self-loop legs, where the fitted
+  flip phase has never been validated;
+- `evaluate_expr` never enforced the 3j triad conditions, returning
+  `+-1` on vanishing diagrams (186 of 729 labelings wrong on an existing
+  fixture).
 
-    (1,2)x2  (1,3) (2,3)  (3,4)  (4,5) (4,6)  (5,6)x2
-
-— two bubbles whose external legs each land on a common vertex, no
-self-loop and no bridge-free obstruction at the start:
-
-- **`solve()` silently returns a wrong formula.** Excising both bubbles
-  merges each pair of externals into a self-loop, landing on the
-  dumbbell `(3,3) (3,4) (4,4)` — two tadpoles joined by a bridge. Since
-  `is_goal` is just `n <= 2`, this is accepted as the goal: cost 0, two
-  δ factors, and **every k=1 constraint dropped**. The `j = 0` forcing
-  and the loop weights are never emitted.
-- **`solve_exact()` crashes**: `ValueError: tuple.index(x): x not in
-  tuple`, from `theta_sign`, whose guard `assert og.n == 2 and
-  len(og.edges) == 3` passes on this non-theta (two loops plus a
-  bridge is also 2 vertices and 3 edges).
-
-Note what was *not* found, so the branch does not chase it: there is no
-dead end. A sweep of 786 reachable states found **0** states with `n > 2`
-and no applicable move — flips always fire, and `solve()` never returns
-`None`. The bug is at the goal test and the exact evaluator, not the
-frontier.
-
-First regression tests: the theta-with-handle family reduces correctly
-and value-exactly against the oracle, and `is_goal` accepts only a true
-theta (2 vertices, 3 parallel edges, no self-loop).
-
-### Coupling: these must ship in ONE PR
-
-The moment loop/bridge excision land as **free** moves, the currently
-shipped summation bound becomes inadmissible at exactly these states.
-Its proof (docs/BOUNDS.md, Lemma 1) is "no bubble or triangle ⇒ every
-move is a flip ⇒ `S >= 1`", and the new free moves falsify the middle
-step. So the k=1 moves, the girth fix, and a re-run of the admissibility
-corpus must land together, or main briefly carries a repeat of the
-v0.6.0 mistake.
-
-### One true girth, not three opinions
-
-`girth_lower()` lies on tadpoles (returns 2/3/4 by bubble/triangle
-presence, never a cycle length), and the blindness goes one layer
-deeper: **`girth_cycle()` explicitly skips self-loop edges too**
-(`graph.py`, `if u0 == v0: continue`) — verified, it returns a 2-cycle
-on a graph whose true girth is 1.
-
-Fix once, centrally: a single `true_girth()` — 1 if any self-loop, 2 if
-any parallel pair, else the BFS cycle — used by the heuristic, the
-stress display, and targeted-move selection alike, rather than three
-functions with three opinions about what a cycle is.
-2. Merge lemma (an afternoon)
-3. Learned heuristic beyond 1-WL (a real ML project; the natural
-   follow-on paper)
+**The standing rule this established:** any new FREE move must be added
+to `bounds.sum_bound`'s move-availability test in the same commit that
+adds the move. Loop excision and bridge cut each falsified Lemma 1's
+hypothesis at exactly the states they were added to handle.
 
 ## Standing lesson from v0.6.1
 

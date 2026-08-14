@@ -7,6 +7,6 @@ from .graph import Graph
 from .search import solve, heuristic, SUM_PENALTY
 from . import benchmarks, bounds, oracle, phase, oriented, circuits
 
-__version__ = "0.7.1"
+__version__ = "0.8.0"
 __all__ = ["Graph", "solve", "heuristic", "SUM_PENALTY", "bounds",
            "benchmarks", "oracle", "phase"]

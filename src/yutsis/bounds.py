@@ -64,9 +64,10 @@ def sum_bound(g: Graph) -> int:
     Weak: it returns SUM_PENALTY whether the true answer is one flip or
     five, so it bounds Petersen at S >= 1 against a certified S = 3.
     Tightening it via edge-separator width is Finding 3."""
-    if g.is_theta():
+    if g.is_terminal():
         return 0
-    if g.bubbles() or g.triangles() or g.excisable_loops():
+    if (g.bubbles() or g.triangles() or g.excisable_loops()
+            or g.cuttable_bridges()):
         return 0
     return SUM_PENALTY
 

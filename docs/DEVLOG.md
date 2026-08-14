@@ -406,3 +406,82 @@ grid costs seconds; the existing tests each checked three points.
 
 **Not addressed here.** Bridge cut and the dumbbell terminal, both
 needing the multi-component / empty-diagram state model — next.
+
+## Session 14 — v0.8.0 (2026-08-14): the k=1 sector closed
+
+**What was built.** Bridge cut, the dumbbell terminal, and the
+multi-component state model they required. With loop excision (v0.7.0)
+and its exact phase (v0.7.1), the `k = 1` sector is complete.
+
+**The physics, derived before any code as usual.** A bridge is a 1-line
+cut, so its edge carries `j = 0` and the cap rule K1b applies at BOTH
+ends:
+
+    delta(e,0) * delta(a,b) * delta(c,d) / (sqrt(2a+1) * sqrt(2c+1))
+
+phase exactly **+1** canonically — measured against the oracle across
+the labeling family, with the 32 orientation variants showing the usual
+`(-1)^(2j)` deviations that normalization absorbs. Verified end to end:
+**0 mismatches over 4608 comparisons** spanning every slot permutation
+and orientation of both endpoints.
+
+**The design decision.** Bridge cut splits a diagram in two, and capping
+a *tadpole* endpoint would merge a self-loop's ends into a bare circle
+with no vertices. Rather than make the empty diagram a first-class
+state, the dumbbell (loop-to-loop) became a **terminal** carrying
+`sqrt(2k+1)*sqrt(2f+1)*delta(c,0)`, and both k=1 moves are guarded off
+that configuration. The bare circle never becomes a state. Dumbbell
+factor verified 0 mismatches / 162 across slot orders, bridge
+orientation and labelings; `solve_exact` on a bare dumbbell reproduces
+the oracle as a zero-move terminal.
+
+**The state model.** Three things generalized together:
+
+- `is_goal` -> `is_terminal()`: every COMPONENT irreducible. It had been
+  `is_theta()`, correct but assuming one diagram — two disjoint thetas
+  were a dead end (`n = 4`, no move applicable).
+- Lemma 0 -> `(n - 2C - 2X)/2` for `C` components and `X` bridge cuts.
+  For a connected input with no bridge cut this is the original
+  `(n-2)/2`, which is why every benchmark cost is unchanged.
+- `replay` finalizes each component separately, so a reduction ends in a
+  SET of irreducible diagrams and `expr["theta"]` became a list.
+
+**The coupling, third time.** Bridge cut is free, so `sum_bound` tests
+`cuttable_bridges()` alongside bubbles, triangles and excisable loops —
+same commit, as ever. This is now a standing rule in docs/BOUNDS.md:
+any new free move must be added to that test in the commit that adds it.
+
+**What the sector did to the corpus.** Reachable states grew 786 -> 910,
+and states with a **computable** optimum grew 75 -> 135, because
+configurations that used to be dead ends now terminate. The opt-in
+decomposition bound went 0 -> 7 -> **8** admissibility violations across
+the sector; the shipped heuristic stayed at 0 throughout.
+
+**What it taught.** A move that changes the shape of the state space is
+not a move — it is a state-model change wearing a move's costume. Loop
+excision fit the existing model and took one commit; bridge cut touched
+the goal test, the cost accounting, the bounds and the replay
+finalizer. Recognising that split before starting is what kept the two
+PRs reviewable.
+
+**A documentation slip, caught and fixed.** Splicing the v0.8.0 sections
+into docs/K1_SECTOR.md cut at the first `## Not yet handled` — of which
+there were two, a leftover from the v0.7.1 edit — silently deleting the
+exact-layer section. Restored from `main` and the document rebuilt with
+a single trailing section. Prose has no test suite; diff it.
+
+**Verification.**
+
+- 89 tests green.
+- `scripts/certify_bounds.py`: CERTIFIED (shipped heuristic) — 0
+  admissibility violations over 135 states with a computable `C*`, 0
+  step violations over 46,005 moves.
+- Benchmarks re-certified against `h = 0` blind uniform-cost:
+  tetrahedron 1, prism 2, K3,3 13, cube 14, Petersen 37 — unchanged.
+- Stress: all costs and expansions identical.
+- `scripts/verify_petersen.py`: still `+0.004629630 == +0.004629630`.
+
+**Next.** The carving/branchwidth bound. Its entry condition is now
+satisfied — degenerate states are dissolved rather than scored around —
+so the decomposition bound can be re-derived and re-certified against
+the completed move set.
