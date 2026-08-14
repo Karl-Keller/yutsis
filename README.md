@@ -121,6 +121,21 @@ analysis in [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md)):
    (carving width, branchwidth), not vertex treewidth, since the
    `(k-3)` calculus lives on edge cuts.
 
+4. **The k=1 sector** (new, and the next thing to fix). Self-loops and
+   bridges are not edge cases — they are the `k = 1` case of the
+   separation calculus, where a single line crossing a cut must carry
+   `j = 0`. The engine has moves for `k = 2` (bubble, a delta) and
+   `k = 3` (triangle, a 6j) but none for `k = 1`, and is measurably
+   incomplete there: on the "theta-with-handle" diagram `solve()`
+   terminates on two tadpoles joined by a bridge — accepted because
+   `is_goal` is `n <= 2` — and silently emits a formula with every
+   `j = 0` constraint dropped, while `solve_exact()` raises. Both
+   girth functions are blind to 1-cycles as well. The principled fix is
+   two derived, oracle-validated moves (loop excision, bridge cut),
+   not scoring the states around. Pinned as executable findings in
+   `tests/test_k1_sector.py`; brief in
+   [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md)
+
 Broader roadmap: cost-aware associahedron search and Qiskit emission in
 `yutsis.circuits`; qudit generalization; general n-line separator cuts;
 wigxjpf backend; learned move ordering with exact-search fallback;
