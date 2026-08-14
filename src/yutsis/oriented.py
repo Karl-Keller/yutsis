@@ -214,6 +214,96 @@ def excise_bubble_exact(og: OGraph, pair):
 
 
 # ----------------------------------------------------------------------------
+# Exact loop excision (the k=1 sector)
+# ----------------------------------------------------------------------------
+def excise_loop_exact(og: OGraph, v):
+    """Canonical tadpole (v slots (k,k,c) with the loop's tail first and
+    c: v->w; w slots (c,a,b) with a,b both tailed at w) excises with
+    factor
+
+        sqrt(2k+1) / sqrt(2a+1) * delta(c,0) * delta(a,b)
+
+    and phase EXACTLY +1 -- measured against the oracle on every
+    labeling of the canonical family, no residual sign to fit
+    (docs/K1_SECTOR.md). The two lemmas behind it:
+
+        K1a  sum_m (-1)^(k-m) 3j(k k c; m -m mc)
+                                  = sqrt(2k+1) d(c,0) d(mc,0)
+        K1b  3j(a b 0; ma mb 0)
+                                  = d(a,b) d(ma,-mb) (-1)^(a-ma)/sqrt(2a+1)
+
+    General case: normalize the local patch by slot permutations
+    ((-1)^triad) and orientation flips ((-1)^(2j)), exactly as
+    excise_bubble_exact does. The loop needs no special orientation
+    handling: the oracle fixes its tail/head by slot order, so any
+    reordering that preserves the relative order of the two k slots
+    preserves the orientation too.
+
+    Returns (new_OGraph, PhaseExpr, zero_label, delta_pair, sqrt_num,
+    sqrt_den)."""
+    loops = [lab for lab, (t, h) in og.edges.items() if t == h == v]
+    if len(loops) != 1:
+        return None
+    k = loops[0]
+    slots = og.verts[v]
+    if list(slots).count(k) != 2:
+        return None
+    others = [s for s in slots if s != k]
+    if len(others) != 1:
+        return None
+    c = others[0]
+    tc, hc = og.edges[c]
+    w = hc if tc == v else tc
+    if w == v:
+        return None
+    if any(t == h == w for t, h in og.edges.values()):
+        return None                      # dumbbell: irreducible terminal
+    wslots = og.verts[w]
+    if c not in wslots:
+        return None
+    ab = [s for s in wslots if s != c]
+    if len(ab) != 2:
+        return None
+    a, b = ab
+
+    phase = PhaseExpr()
+
+    # 1. v -> canonical (k, k, c): move c into slot 3, preserving the
+    #    order of the two k slots (which carries the loop orientation).
+    ci = list(slots).index(c)
+    if ci == 1:                          # (k, c, k): one transposition
+        phase.add_triad(list(slots))
+
+    # 2. w -> canonical (c, a, b).
+    want = (c, a, b)
+    perm = tuple(wslots.index(x) for x in want)
+    inv = sum(1 for i in range(3) for j in range(i + 1, 3)
+              if perm[i] > perm[j])
+    if inv % 2:
+        phase.add_triad(list(wslots))
+
+    # 3. orientations: c tailed at v, a and b tailed at w.
+    if og.edges[c][0] != v:
+        phase.add_2j(c)
+    for lab in (a, b):
+        if og.edges[lab][0] != w:
+            phase.add_2j(lab)
+
+    # 4. residual: a and b merge, keeping label a, running from a's far
+    #    end to b's far end (the excise_bubble_exact convention).
+    ta, ha = og.edges[a]
+    far_a = ta if ha == w else ha
+    tb, hb = og.edges[b]
+    far_b = tb if hb == w else hb
+    new_edges = {lab: th for lab, th in og.edges.items()
+                 if lab not in (k, c, a, b)}
+    new_edges[a] = (far_a, far_b)
+    new_verts = {vid: tuple(a if s == b else s for s in sl)
+                 for vid, sl in og.verts.items() if vid not in (v, w)}
+    return OGraph(new_edges, new_verts), phase, c, (a, b), k, a
+
+
+# ----------------------------------------------------------------------------
 # Exact interchange (edge flip) -- phase role-coefficients set by the
 # constrained fit against wigner_9j (see scripts/fit_flip_phase.py)
 # ----------------------------------------------------------------------------
@@ -305,13 +395,26 @@ def interchange_exact(og: OGraph, e, P_pl, Q_ql):
 def replay(og: OGraph, moves):
     """Apply a structural solver plan with exact operations. Returns an
     expression dict: phase (PhaseExpr), deltas, weights (labels w for
-    1/(2w+1)), sums (x labels), sixjs (arg tuples)."""
+    1/(2w+1)), sums (x labels), sixjs (arg tuples), and -- from the k=1
+    sector -- zeros (labels forced to j=0) and sqrt_num / sqrt_den
+    (labels contributing sqrt(2j+1) and 1/sqrt(2j+1))."""
     total = PhaseExpr()
     deltas, weights, sums, sixjs, flip_roles = [], [], [], [], []
+    zeros, sqrt_num, sqrt_den = [], [], []
+    # Every emitted identity (3j orthogonality for the bubble, the Racah
+    # sum for the triangle, K1a/K1b for the loop) is derived ASSUMING the
+    # source vertex's triad exists; where it does not, both sides vanish
+    # but the emitted factor does not. Record the input triads so the
+    # evaluator can enforce them.
+    input_triads = [tuple(slots) for slots in og.verts.values()]
     for mv in moves:
         if mv[0] == "bubble":
             og, ph, d, wlab = excise_bubble_exact(og, mv[1])
             deltas.append(d); weights.append(wlab)
+        elif mv[0] == "loop":
+            og, ph, zlab, d, snum, sden = excise_loop_exact(og, mv[1])
+            zeros.append(zlab); deltas.append(d)
+            sqrt_num.append(snum); sqrt_den.append(sden)
         elif mv[0] == "tri":
             og, ph, args = reduce_triangle_exact(og, mv[1])
             sixjs.append(args)
@@ -321,8 +424,15 @@ def replay(og: OGraph, moves):
             sums.append(x); sixjs.append(args); flip_roles.append(roles)
         total = total * ph
     total = total * theta_sign(og)
+    # The final theta is folded into theta_sign as a +-1 PHASE, which is
+    # correct only where the theta exists. Record its labels so the
+    # evaluator can enforce the 3j existence conditions; without this the
+    # formula returns +-1 on diagrams that genuinely vanish.
+    theta_labels = tuple(sorted(og.edges))
     return {"phase": total, "deltas": deltas, "weights": weights,
-            "sums": sums, "sixjs": sixjs, "flip_roles": flip_roles}
+            "sums": sums, "sixjs": sixjs, "flip_roles": flip_roles,
+            "zeros": zeros, "sqrt_num": sqrt_num, "sqrt_den": sqrt_den,
+            "theta": theta_labels, "triads": input_triads}
 
 
 # ----------------------------------------------------------------------------
@@ -342,6 +452,8 @@ def solve_exact(og: OGraph, greedy=False):
 
 def evaluate_expr(expr, jmap, xmax=None):
     """Numeric value of a signed expression at a j assignment."""
+    import math
+
     from sympy import S
     from sympy.physics.wigner import wigner_6j
 
@@ -354,14 +466,42 @@ def evaluate_expr(expr, jmap, xmax=None):
     for a, b in expr["deltas"]:
         if jmap[a] != jmap[b]:
             return 0.0
+    # k=1 sector: a line crossing a 1-cut must carry j = 0, so the whole
+    # diagram vanishes off that support.
+    for zlab in expr.get("zeros", ()):
+        if jmap[zlab] != 0:
+            return 0.0
+    def triad_ok(j1, j2, j3):
+        """The 3j existence conditions: integral triad sum and the
+        triangle inequality. A 3nj symbol is zero off these, but the
+        emitted factors alone do not say so."""
+        a, b, c = float(j1), float(j2), float(j3)
+        if abs((a + b + c) - round(a + b + c)) > 1e-9:
+            return False
+        return abs(a - b) - 1e-9 <= c <= a + b + 1e-9
+
+    # Input triads: the reduction identities presume them.
+    for tri in expr.get("triads", ()):
+        if not triad_ok(*(jmap[lab] for lab in tri)):
+            return 0.0
     weight = 1.0
     for wlab in expr["weights"]:
         weight /= float(2 * jmap[wlab] + 1)
+    for slab in expr.get("sqrt_num", ()):
+        weight *= math.sqrt(float(2 * jmap[slab] + 1))
+    for slab in expr.get("sqrt_den", ()):
+        weight /= math.sqrt(float(2 * jmap[slab] + 1))
     if xmax is None:
         xmax = sum(jmap.values())
 
     def rec(i, jm2, acc):
         if i == len(expr["sums"]):
+            # The final theta is folded into theta_sign as a +-1 phase,
+            # which presumes it EXISTS. Checked here rather than at the
+            # top because its labels may be summation variables.
+            theta = expr.get("theta")
+            if theta and not triad_ok(*(jm2[lab] for lab in theta)):
+                return 0.0
             t = acc
             for args in expr["sixjs"]:
                 t *= s6(*[jm2[a] for a in args])
