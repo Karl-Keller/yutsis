@@ -234,3 +234,24 @@ against a now-certified `S = 3` — the gap Finding 3 prong 2 must close,
 with the redirect to edge-separator invariants (carving/branchwidth)
 recorded in `NEXT_STEPS.md`. Ruff is deferred to that branch to keep
 this hotfix reviewable.
+
+**Review addendum (same day).** Three review items settled before merge.
+Lemma 1 gained its explicit proof in `docs/BOUNDS.md`, and writing it
+out corrected a premise: self-loop states do NOT report low girth and
+skip the bonus — `girth_lower()` returns 4 for a tadpole (a `(u,u)`
+edge is not a `bubbles()` pair), so they DO receive it, correctly,
+because their only successors are flips. The proof turns out not to use
+girth at all: `girth_lower()` computes no cycle length, it is a
+move-availability predicate wearing a girth costume, and that is the
+whole basis of the bound.
+
+Which exposes a trap for the branch that follows: **`girth_lower()` is
+not a valid lower bound on girth** — it returns 4 on states whose true
+girth is 1. Any carving/branchwidth bound wanting a real girth must
+call `girth_cycle()`. Recorded as an entry condition in NEXT_STEPS.md
+and pinned by `test_girth_lower_is_not_a_girth_bound_on_self_loop_states`.
+
+`CITATION.cff` had drifted to 0.6.0. Bumped, and the three-way version
+agreement (pyproject / `__init__` / CITATION) is now enforced by
+`tests/test_metadata.py` instead of by memory — a bumped version that
+turns CI red is the ritual working. 48 tests green.

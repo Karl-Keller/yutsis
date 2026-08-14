@@ -41,11 +41,47 @@ optimum (72.5%). See "The counterexamples".
 
     h(G) = 0  +  h_sum(G)
 
-**Lemma 1 (summation bound). PROVEN.** If `n > 2` and `G` has no bubble
-and no triangle, no vertex-removing move applies, so at least one flip —
-hence at least one surviving summation — is required:
+**Lemma 1 (summation bound). PROVEN.**
 
     h_sum(G) = SUM_PENALTY  if n > 2 and girth_lower(G) >= 4, else 0.
+
+*Proof.* `Graph.girth_lower()` returns 2 if `bubbles()` is non-empty,
+3 if `triangles()` is non-empty, and 4 otherwise — so `girth_lower(G)
+>= 4` holds **exactly when** `G` has neither a bubble nor a triangle.
+The move set is `{bubble excision, triangle contraction, interchange}`,
+and the first two have those patterns as their guards. So no
+vertex-removing move applies, and every move out of `G` is an
+interchange. `n > 2` means `G` is not the goal, so a complete reduction
+must make at least one move; that move is a flip, which emits one
+summation. Hence `S >= 1` and `cost >= SUM_PENALTY`. If no move applies
+at all, `G` is a dead end, `C*` is infinite, and any `h` is admissible.
+∎
+
+Note what the proof does **not** use: the girth of `G`. Despite its
+name, `girth_lower()` computes no cycle length — it is a
+move-availability predicate, and the bound rests only on that.
+
+### Degenerate states need no special case here
+
+This is why the summation term, unlike the decomposition bound, has no
+trouble with self-loops and bridges.
+
+A tadpole is a 1-cycle, so a self-loop state has true girth 1 — yet
+`girth_lower()` reports 4 for it, because a self-loop `(u,u)` is not
+counted by `bubbles()` (which looks for a *pair* of vertices joined by
+two parallel edges). Such a state therefore **does** receive the
+`SUM_PENALTY` bonus. That is correct: measured over the corpus, states
+carrying a self-loop with no bubble and no triangle have flips as their
+*only* successors, so `S >= 1` genuinely holds — e.g. an `n = 8`
+instance with `C* = 13 >= 10`. The `n > 2` guard separately excludes the
+theta-with-loops case, where `girth_lower()` is also 4 but the state is
+already the goal (`C* = 0`).
+
+**Trap for future work.** `girth_lower()` is *not* a valid lower bound
+on girth: it returns 4 on states whose true girth is 1 or 2. It is sound
+only as the move-availability predicate proved above. Any carving- or
+branchwidth bound that wants an actual girth must compute one
+(`girth_cycle()`), not reuse this function.
 
 **The 6j term is 0.** Trivially a valid lower bound. This is a
 deliberate choice of a smaller proven bound over a larger conjectured

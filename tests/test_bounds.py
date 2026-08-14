@@ -41,6 +41,17 @@ simple and bubble-free, it shows that restricting attention to
 bubble-free states does NOT rescue the old bound."""
 
 
+TADPOLE_STATE = Graph([(0, 3, "x_j13"), (0, 8, "j8"), (0, 9, "j1"),
+                       (1, 5, "j6"), (1, 7, "j9"), (1, 8, "j11"),
+                       (2, 2, "j5"), (2, 8, "x_j12"),
+                       (3, 5, "j14"), (3, 7, "j10"),
+                       (5, 9, "j4"), (7, 9, "j0")])
+"""n=8 reachable state carrying a self-loop at vertex 2, with no bubble
+and no triangle. Its true girth is 1, but girth_lower() reports 4, so it
+receives the SUM_PENALTY bonus -- correctly, because every successor is
+a flip. Pins the degenerate-state clause of Lemma 1 (docs/BOUNDS.md)."""
+
+
 def v060_heuristic(g):
     """The shipped v0.6.0 heuristic, kept verbatim so its defect stays
     pinned and cannot be quietly reintroduced."""
@@ -138,6 +149,42 @@ def test_old_heuristic_was_broadly_inadmissible():
         if c_star is not None and v060_heuristic(g) > c_star:
             viol += 1
     assert viol > 0
+
+
+# --- Lemma 1: the summation bound rests on move availability ---------
+
+def test_girth_lower_is_a_move_availability_predicate():
+    """The proof of Lemma 1 uses only this equivalence, never a cycle
+    length. Pinned so the bound's justification cannot drift."""
+    for g in CORPUS:
+        assert (g.girth_lower() >= 4) == (not g.bubbles()
+                                          and not g.triangles())
+
+
+def test_girth_lower_is_not_a_girth_bound_on_self_loop_states():
+    """Trap documented in docs/BOUNDS.md: a tadpole is a 1-cycle, but
+    girth_lower() reports 4. Sound for Lemma 1, WRONG for any future
+    bound that wants an actual girth."""
+    assert TADPOLE_STATE.girth_lower() == 4
+    assert any(u == v for u, v, _ in TADPOLE_STATE.edges)  # true girth 1
+    for g in CORPUS:
+        if has_self_loop(g) and g.girth_lower() >= 4:
+            assert any(u == v for u, v, _ in g.edges)
+
+
+def test_sum_bound_is_safe_on_the_tadpole_state():
+    """Such states DO receive the bonus (contrary to the naive reading
+    that self-loops report low girth and are skipped), and that is
+    correct: every successor is a flip, so S >= 1 genuinely holds."""
+    g = TADPOLE_STATE
+    assert g.check_cubic()
+    assert has_self_loop(g)
+    assert not g.bubbles() and not g.triangles()
+    assert g.girth_lower() == 4          # reports 4 despite true girth 1
+    assert sum_bound(g) == 10            # and so it DOES get the bonus
+    kinds = {desc[0] for _n, _f, _6, _s, desc in successors(g, blind=True)}
+    assert kinds == {"flip"}             # which is why the bonus is safe
+    assert sum_bound(g) <= optimal_cost(g) == 13
 
 
 # --- the opt-in decomposition bound, and its documented gap ----------

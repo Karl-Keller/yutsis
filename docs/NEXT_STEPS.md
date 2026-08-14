@@ -99,9 +99,20 @@ What remains:
    scaling: sizes where blind-move A* does not collapse. Must be a
    LOWER bound on the width invariant; upper-bound estimators
    (min-fill, min-degree), which the tensor-network literature reaches
-   for first, are unsafe here. Prerequisite lesson from v0.6.1: handle
-   self-loop and bridge states properly rather than scoring them 0, or
-   the potential-function proof will fail the same way again.
+   for first, are unsafe here.
+
+   Entry conditions, both learned in v0.6.1:
+
+   - Handle self-loop and bridge states properly rather than scoring
+     them 0, or the potential-function proof will fail the same way
+     again (a move that *relocates* degeneracy between pieces collapses
+     the potential by more than the 6j it emits).
+   - Do NOT reuse `Graph.girth_lower()` as a girth. It computes no
+     cycle length — it returns 2/3/4 according to whether a bubble or
+     triangle exists, so it reports 4 on a tadpole whose true girth is
+     1. It is sound only as the move-availability predicate that
+     Lemma 1 needs. A width bound wanting real girth must use
+     `girth_cycle()`.
 2. Merge lemma (an afternoon)
 3. Learned heuristic beyond 1-WL (a real ML project; the natural
    follow-on paper)
