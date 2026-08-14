@@ -45,43 +45,46 @@ optimum (72.5%). See "The counterexamples".
 
     h_sum(G) = SUM_PENALTY  if n > 2 and girth_lower(G) >= 4, else 0.
 
-*Proof.* `Graph.girth_lower()` returns 2 if `bubbles()` is non-empty,
-3 if `triangles()` is non-empty, and 4 otherwise — so `girth_lower(G)
->= 4` holds **exactly when** `G` has neither a bubble nor a triangle.
-The move set is `{bubble excision, triangle contraction, interchange}`,
-and the first two have those patterns as their guards. So no
-vertex-removing move applies, and every move out of `G` is an
-interchange. `n > 2` means `G` is not the goal, so a complete reduction
-must make at least one move; that move is a flip, which emits one
+*Proof.* If `G` is not the goal and **no vertex-removing move applies**,
+then every move out of `G` is an interchange. A complete reduction must
+make at least one move, that move is a flip, and a flip emits one
 summation. Hence `S >= 1` and `cost >= SUM_PENALTY`. If no move applies
 at all, `G` is a dead end, `C*` is infinite, and any `h` is admissible.
 ∎
+
+**The hypothesis must name every free move.** The move set is
+`{bubble excision, loop excision, triangle contraction, interchange}`,
+so the test is `bubbles()` **and** `excisable_loops()` **and**
+`triangles()` all empty. The k=1 sector added loop excision, and until
+`sum_bound` was taught about it the lemma's hypothesis was false at
+exactly the tadpole states — charging a summation to a state with a free
+vertex-removing move. Adding a free move without updating this test
+makes `h` inadmissible in a single release; the two must land in the
+same commit. See docs/K1_SECTOR.md, "The coupling".
 
 Note what the proof does **not** use: the girth of `G`. Despite its
 name, `girth_lower()` computes no cycle length — it is a
 move-availability predicate, and the bound rests only on that.
 
-### Degenerate states need no special case here
+### Degenerate states, and how the k=1 sector changed them
 
-This is why the summation term, unlike the decomposition bound, has no
-trouble with self-loops and bridges.
+Before loop excision existed, a tadpole state had flips as its *only*
+successors, so it genuinely owed a summation and the bonus was correct
+(measured: an `n = 8` instance with `C* = 13 >= 10`). Loop excision
+changed that -- such states now have a free vertex-removing move and owe
+nothing, which is why `sum_bound` tests `excisable_loops()`.
 
-A tadpole is a 1-cycle, so a self-loop state has true girth 1 — yet
-`girth_lower()` reports 4 for it, because a self-loop `(u,u)` is not
-counted by `bubbles()` (which looks for a *pair* of vertices joined by
-two parallel edges). Such a state therefore **does** receive the
-`SUM_PENALTY` bonus. That is correct: measured over the corpus, states
-carrying a self-loop with no bubble and no triangle have flips as their
-*only* successors, so `S >= 1` genuinely holds — e.g. an `n = 8`
-instance with `C* = 13 >= 10`. The `n > 2` guard separately excludes the
-theta-with-loops case, where `girth_lower()` is also 4 but the state is
-already the goal (`C* = 0`).
+The remaining degenerate case is the **dumbbell** (two tadpoles joined
+by a bridge), where the loop-to-loop guard blocks excision. It is a dead
+end today, so any `h` is admissible there; it becomes reducible when the
+empty-diagram state model arrives with bridge cut.
 
-**Trap for future work.** `girth_lower()` is *not* a valid lower bound
-on girth: it returns 4 on states whose true girth is 1 or 2. It is sound
-only as the move-availability predicate proved above. Any carving- or
-branchwidth bound that wants an actual girth must compute one
-(`girth_cycle()`), not reuse this function.
+**Trap for future work.** Neither `girth_lower()` nor `girth_cycle()` is
+a girth. `girth_lower()` reports by bubble/triangle presence and is sound
+*only* as the move-availability predicate proved above; `girth_cycle()`
+skips self-loop edges outright. Both are wrong on a tadpole, whose true
+girth is 1. Use **`Graph.true_girth()`** -- 1 if any self-loop, 2 if any
+parallel pair, else the BFS cycle. The carving/branchwidth bound must.
 
 **The 6j term is 0.** Trivially a valid lower bound. This is a
 deliberate choice of a smaller proven bound over a larger conjectured
@@ -155,13 +158,32 @@ move can then *relocate* the degeneracy between pieces: in the observed
 case a flip took `[6 clean, 2 degenerate]` (`Phi = 2`) to
 `[2 clean, 6 degenerate]` (`Phi = 0`), a drop of 2 for one 6j.
 
-So the bound is **certified, not proven**:
+So the bound was **certified, not proven**:
 
 - 0 violations of `Phi <= C*` over 80 states with computable optimum,
-  tight on 54 — it is empirically admissible everywhere tested;
+  tight on 54 — empirically admissible everywhere tested *against the
+  move set of the day*;
 - but its proof has a hole at degenerate states, which is exactly the
   epistemic position that let v0.6.0 ship broken (that bound also
   passed every test it had).
+
+### Update (k=1 sector): it is now outright INADMISSIBLE
+
+Loop excision removes two vertices **for free**, so `C*` fell below what
+a bound counting `(n_i - 2)/2` per piece predicts. Re-running the corpus
+after the move landed: **7 violations of `Phi <= C*`** over 75 states
+with a computable optimum, every one at a state carrying an excisable
+loop.
+
+This is the strongest possible vindication of shipping the proven bound
+instead. The decomposition was admissible on every state ever tested —
+and one new free move broke it outright, in the very next release. **A
+bound verified against a move set is only valid for that move set.**
+
+It is retained, documented as unusable, as the foundation for the
+carving/branchwidth work, where degenerate states get dissolved (bridge
+cut, the empty-diagram model) rather than scored 0 — at which point it
+can be re-derived and re-certified against the completed move set.
 
 Rejected repairs, both by machine rather than by argument:
 

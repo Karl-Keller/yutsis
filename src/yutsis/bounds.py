@@ -48,16 +48,27 @@ SUM_PENALTY = 10  # one surviving summation ~ ten 6j lookups at evaluation
 def sum_bound(g: Graph) -> int:
     """Lower bound on summation cost. PROVEN.
 
-    With no bubble and no triangle present, no vertex-removing move
-    applies, so at least one interchange -- hence at least one surviving
-    summation -- is unavoidable.
+    If the state is not the goal and NO vertex-removing move applies,
+    every move out of it is an interchange, so at least one surviving
+    summation is unavoidable.
+
+    The move-availability test must name every free move. When loop
+    excision joined the move set (the k=1 sector) the previous test --
+    bubble or triangle only -- became false: a tadpole state has a free
+    vertex-removing move and does NOT owe a summation. Shipping the new
+    move without this line would have made h inadmissible at exactly the
+    states the move was added to handle, repeating the v0.6.0 mistake in
+    a single release. Any future free move must be added here in the
+    same commit.
 
     Weak: it returns SUM_PENALTY whether the true answer is one flip or
     five, so it bounds Petersen at S >= 1 against a certified S = 3.
     Tightening it via edge-separator width is Finding 3."""
-    if g.n > 2 and g.girth_lower() >= 4:
-        return SUM_PENALTY
-    return 0
+    if g.is_theta():
+        return 0
+    if g.bubbles() or g.triangles() or g.excisable_loops():
+        return 0
+    return SUM_PENALTY
 
 
 def heuristic(g: Graph) -> int:
@@ -161,22 +172,28 @@ def sixj_bound_decomposition(g: Graph) -> int:
     bubble discount is derived from the cut structure rather than bolted
     on.
 
-    CERTIFICATION STATUS -- read before using this in a search whose
-    optimality you intend to claim:
+    CERTIFICATION STATUS -- DO NOT use this as a search heuristic:
 
-      * Admissible on every tested state: 0 violations of h <= C* over
-        80 reachable states with a computable optimum, tight on 54.
-      * NOT proven. The potential-function proof (docs/BOUNDS.md) needs
-        Phi(G) <= Phi(G') + d6 for every move, and that FAILS on 310 of
-        42,611 moves -- all of them at states carrying a self-loop or a
-        bridge, where a move can relocate the degeneracy between pieces
-        and collapse Phi by more than the 6j it emits.
+      * INADMISSIBLE as of the k=1 sector. 7 violations of h <= C* over
+        75 reachable states with a computable optimum, every one at a
+        state carrying an excisable loop. Loop excision removes two
+        vertices for free, so C* fell below what a bound counting
+        (n_i - 2)/2 per piece predicts.
+      * Also NOT proven. Its potential-function proof (docs/BOUNDS.md)
+        needs Phi(G) <= Phi(G') + d6 for every move and fails on 298 of
+        42,052 moves, all at self-loop or bridge states.
 
-    Because it never changed a single search decision in measurement
-    (see module docstring), `heuristic` does not use it. It is retained
-    as the foundation for the carving/branchwidth bound of Finding 3,
-    where the degenerate cases must be handled properly rather than
-    scored 0."""
+    This is the single best argument for the v0.6.1 decision to ship the
+    proven bound rather than this one. It was admissible on every state
+    tested against the OLD move set; adding one free move broke it
+    outright. A bound verified against a move set is only valid for that
+    move set.
+
+    Retained as the foundation for the carving/branchwidth bound of
+    Finding 3, where degenerate states must be dissolved (bridge cut,
+    the empty-diagram model) rather than scored 0 -- at which point this
+    bound can be re-derived and re-certified against the completed move
+    set."""
     return sum(0 if has_self_loop(p) or has_bridge(p)
                else max(0, (p.n - 2) // 2)
                for p in three_edge_pieces(g))

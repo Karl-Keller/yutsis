@@ -38,12 +38,78 @@ class Graph:
                 tris.append((a, b, c))
         return tris
 
+    def self_loops(self):
+        """Vertices carrying a tadpole (an edge with both ends at them).
+
+        The k=1 sector: closing two legs of a vertex forces its third
+        edge to j = 0 (docs/K1_SECTOR.md)."""
+        return sorted({u for u, v, _ in self.edges if u == v})
+
+    def loop_partner(self, v):
+        """The far endpoint of a loop vertex's one non-loop edge, with
+        that edge's label; None if v carries no self-loop."""
+        others = [(w, lab) for w, lab, _ in self.adj[v] if w != v]
+        loops = [lab for w, lab, _ in self.adj[v] if w == v]
+        if not loops or len(others) != 1:
+            return None
+        return others[0]
+
+    def excisable_loops(self):
+        """Loop vertices whose partner is a distinct, loop-free vertex --
+        the guard for loop excision.
+
+        A loop vertex whose partner also carries a loop is the DUMBBELL,
+        an irreducible k=1 terminal: capping it leaves a bare circle with
+        no vertices, which needs the empty-diagram state model that
+        arrives with bridge cut. Excluded here rather than mishandled."""
+        loops = set(self.self_loops())
+        out = []
+        for v in sorted(loops):
+            partner = self.loop_partner(v)
+            if partner is None:
+                continue
+            w, _lab = partner
+            if w != v and w not in loops:
+                out.append(v)
+        return out
+
     def girth_lower(self):
+        """NOT a lower bound on girth -- see true_girth(). This is the
+        move-availability predicate Lemma 1 rests on: it reports whether
+        a bubble (2) or triangle (3) pattern is present, or neither (4).
+        It is blind to self-loops by construction, which is correct for
+        its one job and wrong for anything else."""
         if self.bubbles():
             return 2
         if self.triangles():
             return 3
         return 4
+
+    def true_girth(self):
+        """The actual length of a shortest cycle, self-loops included.
+
+        The one honest girth. girth_lower() reports by bubble/triangle
+        presence and never computes a cycle; girth_cycle() skips
+        self-loop edges outright. Both therefore return 4 and 2
+        respectively on a tadpole whose true girth is 1."""
+        if self.self_loops():
+            return 1
+        if self.bubbles():
+            return 2
+        cyc = self.girth_cycle()
+        return len(cyc) if cyc else float("inf")
+
+    def is_theta(self):
+        """Two vertices joined by three parallel edges: the true goal.
+
+        Excludes the dumbbell -- two tadpoles joined by a bridge -- which
+        also has two vertices and three edges, and which the old n <= 2
+        goal test silently accepted, emitting a formula with every j = 0
+        constraint dropped."""
+        if self.n != 2 or len(self.edges) != 3 or self.self_loops():
+            return False
+        u, v = sorted(self.adj)
+        return all({a, b} == {u, v} for a, b, _ in self.edges)
 
     def girth_cycle(self):
         """One shortest cycle as an ordered vertex tuple (None if acyclic).

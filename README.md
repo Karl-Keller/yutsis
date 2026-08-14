@@ -20,7 +20,7 @@ trusted on inspection.
 ## Install
 
     pip install -e ".[dev,perf]"   # perf pulls pynauty for fast canonicalization
-    pytest -q                      # 42 tests: oracles, theorems, bounds, compiler
+    pytest -q                      # 59 tests: oracles, theorems, bounds, k=1, compiler
     python -m yutsis               # benchmark reductions
 
 ## Showcase: the Petersen graph (a 15j symbol)
@@ -49,8 +49,17 @@ assignments — to 1e-9. Run it yourself:
 
     python scripts/verify_petersen.py
 
-## Verified results (v0.6.1)
+## Verified results (v0.7.0)
 
+- **The k=1 sector, half closed** (`yutsis.moves.excise_loop`,
+  [docs/K1_SECTOR.md](docs/K1_SECTOR.md)): a closed diagram is a
+  rotational scalar, so a line crossing a 1-cut carries `j = 0`. Loop
+  excision fuses two lemmas verified against the oracle *before* any
+  move code — the tadpole weight `sqrt(2k+1)·δ(j_c,0)` on six labelings
+  including half-integers, and the cap rule at ratio exactly
+  `1/sqrt((2j₁+1)(2j₄+1))`. Fixing this required teaching the oracle the
+  sector first: it scored both self-loop slots as tails and returned
+  `0.0` where the analytic answer was `2`
 - **Admissibility, repaired and certified** (`yutsis.bounds`,
   [docs/BOUNDS.md](docs/BOUNDS.md)): the v0.6.0 heuristic was
   inadmissible — its `(n-2)/2` 6j term assumed no bubble excision ever
@@ -62,7 +71,6 @@ assignments — to 1e-9. Run it yourself:
   tetrahedron 1, prism 2, K3,3 13, cube 14, Petersen 37
 - **Petersen's minimum is three summations** — certified over the full
   move set, not merely the cycle-targeted class (see Findings below)
-
 - **Oracle conventions phase-exact**: the Racah-oriented tetrahedron
   reproduces `wigner_6j` including sign on integer and half-integer
   cases; the K3,3 diagram equals `wigner_9j` at ratio +1.0000
@@ -120,21 +128,17 @@ analysis in [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md)):
    for cubic graphs the live invariants are **edge**-separator ones
    (carving width, branchwidth), not vertex treewidth, since the
    `(k-3)` calculus lives on edge cuts.
-
-4. **The k=1 sector** (new, and the next thing to fix). Self-loops and
-   bridges are not edge cases — they are the `k = 1` case of the
-   separation calculus, where a single line crossing a cut must carry
-   `j = 0`. The engine has moves for `k = 2` (bubble, a delta) and
-   `k = 3` (triangle, a 6j) but none for `k = 1`, and is measurably
-   incomplete there: on the "theta-with-handle" diagram `solve()`
-   terminates on two tadpoles joined by a bridge — accepted because
-   `is_goal` is `n <= 2` — and silently emits a formula with every
-   `j = 0` constraint dropped, while `solve_exact()` raises. Both
-   girth functions are blind to 1-cycles as well. The principled fix is
-   two derived, oracle-validated moves (loop excision, bridge cut),
-   not scoring the states around. Pinned as executable findings in
-   `tests/test_k1_sector.py`; brief in
-   [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md)
+4. **The k=1 sector** (half closed in v0.7.0). Self-loops and bridges
+   are the `k = 1` case of the separation calculus: a single line
+   crossing a cut must carry `j = 0`. **Loop excision** now exists —
+   derived from two oracle-verified lemmas and fused into one move
+   ([docs/K1_SECTOR.md](docs/K1_SECTOR.md)) — closing a real silent
+   incorrectness: `solve()` used to terminate on two tadpoles joined by
+   a bridge (accepted because `is_goal` was `n <= 2`) and emit a formula
+   with every `j = 0` constraint dropped. The goal test is now a true
+   theta, and `true_girth()` is the one function that sees 1-cycles.
+   **Bridge cut remains open**: it splits the diagram into two closed
+   pieces, which the single-graph state model cannot represent
 
 Broader roadmap: cost-aware associahedron search and Qiskit emission in
 `yutsis.circuits`; qudit generalization; general n-line separator cuts;
