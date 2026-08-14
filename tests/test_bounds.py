@@ -172,19 +172,25 @@ def test_girth_lower_is_not_a_girth_bound_on_self_loop_states():
             assert any(u == v for u, v, _ in g.edges)
 
 
-def test_sum_bound_is_safe_on_the_tadpole_state():
-    """Such states DO receive the bonus (contrary to the naive reading
-    that self-loops report low girth and are skipped), and that is
-    correct: every successor is a flip, so S >= 1 genuinely holds."""
+def test_sum_bound_drops_the_bonus_once_loop_excision_exists():
+    """THE COUPLING, pinned.
+
+    Before the k=1 sector this state had only flips as successors, so
+    Lemma 1 charged it SUM_PENALTY. Loop excision is a FREE
+    vertex-removing move, which falsifies that argument at exactly these
+    states -- so sum_bound must test for it. Shipping the move without
+    the bound change would have made h inadmissible here in one release.
+    """
     g = TADPOLE_STATE
     assert g.check_cubic()
     assert has_self_loop(g)
     assert not g.bubbles() and not g.triangles()
-    assert g.girth_lower() == 4          # reports 4 despite true girth 1
-    assert sum_bound(g) == 10            # and so it DOES get the bonus
+    assert g.girth_lower() == 4       # the old test: "no bubble/triangle"
+    assert g.excisable_loops()        # ...but a free move DOES apply
+    assert sum_bound(g) == 0          # so no summation is owed
     kinds = {desc[0] for _n, _f, _6, _s, desc in successors(g, blind=True)}
-    assert kinds == {"flip"}             # which is why the bonus is safe
-    assert sum_bound(g) <= optimal_cost(g) == 13
+    assert "loop" in kinds
+    assert sum_bound(g) <= optimal_cost(g)
 
 
 # --- the opt-in decomposition bound, and its documented gap ----------

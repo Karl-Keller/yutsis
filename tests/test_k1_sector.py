@@ -1,32 +1,34 @@
-"""The k=1 sector: known incompleteness, pinned as executable findings.
+"""The k=1 sector: loop excision, and the terminal it does not yet reach.
 
 A closed diagram is a rotational scalar, so a single line crossing a
-separation must carry j = 0. The engine has moves for k = 2 (bubble, a
-delta) and k = 3 (triangle, a 6j factorization) but none for k = 1, and
-so it mishandles bridges and self-loops rather than dissolving them.
+separation must carry j = 0. Two lemmas, both oracle-verified
+(docs/K1_SECTOR.md):
 
-These tests are xfail(strict=True): they FAIL the suite if they ever
-start passing, which is exactly the signal wanted when loop excision and
-bridge cut land. See docs/NEXT_STEPS.md, "The k=1 sector".
+    K1a  sum_m (-1)^(k-m) 3j(k k c; m -m mc) = sqrt(2k+1) d(c,0) d(mc,0)
+    K1b  3j(a b 0; ma mb 0) = d(a,b) d(ma,-mb) (-1)^(a-ma)/sqrt(2a+1)
+
+Loop excision fuses them. Bridge cut needs the multi-component state
+model and is the next PR.
 """
 import pytest
 
 import yutsis.oriented as O
 from yutsis.graph import Graph
-from yutsis.search import is_goal, solve
+from yutsis.moves import excise_loop, interchanges
+from yutsis.search import is_goal, optimal_cost, solve, successors
 
 THETA_WITH_HANDLE = Graph([(1, 2, "a"), (1, 2, "b"), (1, 3, "c"),
                            (2, 3, "d"), (3, 4, "e"),
                            (4, 5, "f"), (4, 6, "g"),
                            (5, 6, "h"), (5, 6, "i")])
 """Two bubbles whose external legs each land on a common vertex. A
-physically legitimate closed cubic diagram, carrying no self-loop at the
-start. Excising both bubbles merges each pair of externals into a
-self-loop, landing on the dumbbell (3,3) (3,4) (4,4)."""
+legitimate closed cubic diagram carrying no self-loop at the start.
+Excising a bubble merges its externals into a tadpole -- which is what
+made this the reproduction case for the k=1 defect."""
 
 DUMBBELL_OF_TADPOLES = Graph([(3, 3, "c"), (3, 4, "e"), (4, 4, "f")])
 """Two tadpoles joined by a bridge. Two vertices and three edges, like a
-theta -- which is why both the goal test and theta_sign accept it."""
+theta -- which is why the old `n <= 2` goal test accepted it."""
 
 
 def test_theta_with_handle_is_a_legitimate_closed_diagram():
@@ -34,38 +36,97 @@ def test_theta_with_handle_is_a_legitimate_closed_diagram():
     assert not any(u == v for u, v, _ in THETA_WITH_HANDLE.edges)
 
 
-def test_reduction_reaches_the_dumbbell_of_tadpoles():
-    """Not a bug in itself -- the setup for the two below."""
+# --- what loop excision fixed ----------------------------------------
+
+def test_goal_test_accepts_only_a_true_theta():
+    """Regression for the silent-wrong-answer bug: the dumbbell has two
+    vertices and three edges but is NOT the goal."""
+    d = DUMBBELL_OF_TADPOLES
+    assert d.n == 2 and len(d.edges) == 3
+    assert not is_goal(d)
+    assert not d.is_theta()
+    assert is_goal(Graph([(1, 2, "x"), (1, 2, "y"), (1, 2, "z")]))
+
+
+def test_handle_reduces_and_the_formula_carries_the_k1_constraints():
+    """Previously this terminated on the dumbbell at cost 0 with two
+    deltas and every j=0 constraint dropped. Now it reduces to a true
+    theta and the formula states the k=1 physics explicitly."""
     r = solve(THETA_WITH_HANDLE)
     assert r is not None and not r["timeout"]
-    assert [m[0] for m in r["moves"]] == ["bubble", "bubble"]
-
-
-@pytest.mark.xfail(strict=True,
-                   reason="k=1 sector missing: is_goal is n<=2, so two "
-                          "tadpoles joined by a bridge are accepted as "
-                          "the goal. Fix with loop excision + bridge cut.")
-def test_goal_test_accepts_only_a_true_theta():
-    g = DUMBBELL_OF_TADPOLES
-    assert g.n == 2 and len(g.edges) == 3   # looks like a theta...
-    assert not is_goal(g)                   # ...but must not be the goal
-
-
-@pytest.mark.xfail(strict=True,
-                   reason="k=1 sector missing: solve() terminates on the "
-                          "dumbbell and emits no delta(j,0) and no loop "
-                          "weight, so the formula silently drops the "
-                          "j=0 constraints.")
-def test_formula_carries_the_k1_constraints():
-    r = solve(THETA_WITH_HANDLE)
+    assert [m[0] for m in r["moves"]] == ["bubble", "loop"]
     factors = " ".join(r["factors"])
-    assert "0" in factors and r["cost"] > 0
+    assert "loopw(" in factors        # the sqrt(2k+1) tadpole weight
+    assert "delta(e,0)" in factors    # the j = 0 forcing (K1a)
+    assert "sqrt(" in factors         # the 1/sqrt(2a+1) cap (K1b)
+    assert r["sixj"] == 0 and r["sums"] == 0   # k=1 moves are FREE
+
+
+def test_loop_excision_removes_two_vertices_for_free():
+    g = Graph([(0, 0, "L"), (0, 1, "c"), (1, 2, "a"), (1, 3, "b"),
+               (2, 3, "d"), (2, 4, "e"), (3, 5, "f"),
+               (4, 5, "g"), (4, 5, "h")])
+    assert g.excisable_loops() == ["0"]
+    ng, fac, d6, ds, desc = excise_loop(g, "0")
+    assert ng.n == g.n - 2 and ng.check_cubic()
+    assert (d6, ds) == (0, 0)
+    assert desc == ("loop", "0")
+
+
+# --- the flip guard the k=1 sector forced -----------------------------
+
+def test_flips_are_guarded_against_self_loop_legs():
+    """The flip phase was fitted on a generic patch (distinct u,v,P,Q).
+    A self-loop makes P == u, which that fit never covered. Unguarded,
+    the dumbbell 'reduced' at cost 11 through unvalidated algebra."""
+    assert interchanges(DUMBBELL_OF_TADPOLES) == []
+    for ng, *_rest in interchanges(THETA_WITH_HANDLE):
+        assert ng.check_cubic()
+
+
+# --- one honest girth -------------------------------------------------
+
+def test_true_girth_sees_one_cycles():
+    g = Graph([(0, 0, "L"), (0, 1, "a"), (1, 2, "b"), (1, 3, "c"),
+               (2, 3, "d"), (2, 4, "e"), (3, 5, "f"),
+               (4, 5, "g"), (4, 5, "h")])
+    assert g.true_girth() == 1                       # the tadpole
+    assert Graph([(1, 2, "x"), (1, 2, "y"),
+                  (1, 2, "z")]).true_girth() == 2    # parallel pair
+
+
+def test_the_other_two_girth_functions_stay_as_they_are_by_design():
+    """girth_lower() is the move-availability predicate Lemma 1 rests on
+    and girth_cycle() skips loop edges; neither is a girth. They are left
+    alone deliberately -- true_girth() is the one to reach for."""
+    g = Graph([(0, 0, "L"), (0, 1, "a"), (1, 2, "b"), (1, 3, "c"),
+               (2, 3, "d"), (2, 4, "e"), (3, 5, "f"),
+               (4, 5, "g"), (4, 5, "h")])
+    assert g.true_girth() == 1
+    assert g.girth_lower() != 1        # reports by bubble/triangle only
+    assert len(g.girth_cycle()) != 1   # skips the self-loop edge
+
+
+# --- what is NOT fixed yet -------------------------------------------
+
+def test_dumbbell_is_an_honest_dead_end_not_a_false_goal():
+    """The loop-to-loop case is an irreducible k=1 terminal: capping it
+    leaves a bare circle with no vertices, which needs the empty-diagram
+    state model arriving with bridge cut. Until then it is a dead end --
+    a loud failure rather than a silent wrong answer."""
+    d = DUMBBELL_OF_TADPOLES
+    assert d.self_loops() == ["3", "4"]
+    assert d.excisable_loops() == []      # guarded, not mishandled
+    assert successors(d, blind=True) == []
+    assert solve(d) is None
+    assert optimal_cost(d) is None
 
 
 @pytest.mark.xfail(strict=True,
-                   reason="k=1 sector missing: theta_sign's guard "
-                          "(n==2 and 3 edges) passes on two loops plus a "
-                          "bridge, then raises ValueError.")
+                   reason="exact layer: loop excision has no oriented "
+                          "counterpart yet, so theta_sign still meets a "
+                          "non-theta and raises. Lands with the phase "
+                          "derivation.")
 def test_exact_path_handles_the_handle():
     edges = {"a": ("1", "2"), "b": ("1", "2"), "c": ("1", "3"),
              "d": ("2", "3"), "e": ("3", "4"), "f": ("4", "5"),
@@ -74,26 +135,3 @@ def test_exact_path_handles_the_handle():
              "3": ("c", "d", "e"), "4": ("e", "f", "g"),
              "5": ("f", "h", "i"), "6": ("g", "h", "i")}
     O.solve_exact(O.OGraph(edges, verts))
-
-
-@pytest.mark.xfail(strict=True,
-                   reason="both girth functions are blind to 1-cycles: "
-                          "girth_lower() reports by bubble/triangle "
-                          "presence, girth_cycle() skips self-loop edges. "
-                          "Fix with one central true_girth().")
-def test_girth_functions_see_one_cycles():
-    g = Graph([(0, 0, "L"), (0, 1, "a"), (1, 2, "b"), (1, 3, "c"),
-               (2, 3, "d"), (2, 4, "e"), (3, 5, "f"),
-               (4, 5, "g"), (4, 5, "h")])
-    assert any(u == v for u, v, _ in g.edges)   # true girth is 1
-    assert g.girth_lower() == 1
-    assert len(g.girth_cycle()) == 1
-
-
-def test_no_dead_ends_was_verified():
-    """Records what was NOT found, so the branch does not chase it: a
-    sweep of 786 reachable states found no state with n > 2 and no
-    applicable move. The defect is at the goal test, not the frontier."""
-    from yutsis.search import successors
-    assert successors(THETA_WITH_HANDLE, blind=True)
-    assert successors(DUMBBELL_OF_TADPOLES, blind=True) is not None

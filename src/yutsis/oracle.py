@@ -55,10 +55,23 @@ class ClosedDiagram:
             term = phase
             for vid, tri in self.vertices.items():
                 js, mms = [], []
+                seen = {}
                 for eid in tri:
                     t, h, j = self.edges[eid]
                     js.append(j)
-                    mms.append(m[eid] if t == vid else -m[eid])
+                    occurrence = seen.get(eid, 0)
+                    seen[eid] = occurrence + 1
+                    if t == vid and h == vid:
+                        # Self-loop (k=1 sector): both ends sit at this
+                        # vertex, so tail/head cannot be told apart by
+                        # vertex id. Fix the convention by slot order --
+                        # the first occurrence is the tail (+m), the
+                        # second the head (-m). Non-loop edges are
+                        # unaffected, so every existing diagram keeps its
+                        # value bit-for-bit.
+                        mms.append(m[eid] if occurrence == 0 else -m[eid])
+                    else:
+                        mms.append(m[eid] if t == vid else -m[eid])
                 term *= w3j(js[0], js[1], js[2], mms[0], mms[1], mms[2])
                 if term == 0:
                     break

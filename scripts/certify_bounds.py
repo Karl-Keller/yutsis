@@ -150,12 +150,20 @@ def main():
     print(f"  tight                         : {d_tight}")
     print(f"  step violations (total)       : {d_step}")
     print(f"  step violations at CLEAN state: {d_step_clean}")
-    print("  (the gap is confined to self-loop/bridge states -- this is")
-    print("   why the decomposition is opt-in, see docs/BOUNDS.md)")
+    print("  (INFORMATIONAL. This bound is opt-in and known inadmissible")
+    print("   as of the k=1 sector: loop excision removes two vertices")
+    print("   for free, so C* fell below (n_i-2)/2 per piece. It is NOT")
+    print("   the shipped heuristic and does not gate the verdict --")
+    print("   see docs/BOUNDS.md. A bound verified against a move set is")
+    print("   only valid for that move set.)")
 
     print()
-    ok = (v_new == 0 and broken == 0 and d_adm == 0 and d_step_clean == 0)
-    print("CERTIFIED" if ok else "*** CERTIFICATION FAILED ***")
+    # The verdict covers the SHIPPED heuristic only. The opt-in bound is
+    # reported above but deliberately does not gate: it is documented as
+    # inadmissible rather than silently relied on.
+    ok = (v_new == 0 and broken == 0)
+    print("CERTIFIED (shipped heuristic)" if ok
+          else "*** CERTIFICATION FAILED ***")
     return 0 if ok else 1
 
 

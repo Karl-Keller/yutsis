@@ -4,14 +4,20 @@ import heapq
 import itertools
 from .bounds import SUM_PENALTY, heuristic
 from .graph import Graph
-from .moves import excise_bubble, reduce_triangle, interchanges, targeted_interchanges
+from .moves import (excise_bubble, excise_loop, reduce_triangle, interchanges,
+                    targeted_interchanges)
 
 __all__ = ["SUM_PENALTY", "heuristic", "is_goal", "successors", "solve",
            "optimal_cost"]
 
 
 def is_goal(g: Graph):
-    return g.n <= 2  # theta: pure normalization
+    """A TRUE theta: two vertices, three parallel edges, no self-loop.
+
+    Was `g.n <= 2`, which also accepted the dumbbell (two tadpoles
+    joined by a bridge) and so terminated with a formula that dropped
+    every k=1 j=0 constraint -- silently, on valid input."""
+    return g.is_theta()
 
 
 def successors(g: Graph, blind=False):
@@ -19,10 +25,11 @@ def successors(g: Graph, blind=False):
     girth strategy); blind=True generates the full ~4|E| flip set, which
     is what an optimality claim over the UNRESTRICTED move class needs."""
     children = [excise_bubble(g, pair) for pair in g.bubbles()]
+    children += [excise_loop(g, v) for v in g.excisable_loops()]
     children += [reduce_triangle(g, tri) for tri in g.triangles()]
     if blind:
         children += interchanges(g)
-    elif not g.triangles() and not g.bubbles():
+    elif not g.triangles() and not g.bubbles() and not g.excisable_loops():
         children += targeted_interchanges(g) or interchanges(g)
     return [c for c in children if c is not None]
 

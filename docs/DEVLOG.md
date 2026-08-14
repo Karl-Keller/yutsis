@@ -255,3 +255,96 @@ and pinned by `test_girth_lower_is_not_a_girth_bound_on_self_loop_states`.
 agreement (pyproject / `__init__` / CITATION) is now enforced by
 `tests/test_metadata.py` instead of by memory — a bumped version that
 turns CI red is the ritual working. 48 tests green.
+
+## Session 12 — v0.7.0 (2026-08-14): the k=1 sector, half of it
+
+**What was built.** Loop excision — the first `k = 1` move — plus the
+oracle support, the goal-test fix, `true_girth()`, and the flip guard it
+forced. Derivation in `docs/K1_SECTOR.md`. Bridge cut is deferred: it
+splits the diagram in two, which the single-graph state model cannot
+represent (see "Not yet handled").
+
+**The prerequisite nobody had noticed.** The oracle could *represent* a
+self-loop — the edge occupies two slots of one vertex, so the `uses==2`
+guard passes — but could not *evaluate* one. `value()` assigns `+m` at
+the tail and `-m` at the head by comparing vertex ids, and for a loop
+tail == head, so both slots scored `+m`. The dumbbell returned `0.0`
+against an analytic `2`. Ground truth cannot certify moves for a sector
+it cannot express, so this had to land first. Fixed by slot order —
+first occurrence is the tail, second the head — which leaves every
+non-loop diagram bit-for-bit identical.
+
+**The physics.** A closed diagram is a rotational scalar, so a single
+line crossing a separation carries `j = 0`. Two lemmas, both verified
+against the oracle before any move code was written:
+
+    K1a  sum_m (-1)^(k-m) 3j(k k c; m -m mc) = sqrt(2k+1) d(c,0) d(mc,0)
+    K1b  3j(a b 0; ma mb 0) = d(a,b) d(ma,-mb) (-1)^(a-ma)/sqrt(2a+1)
+
+K1a on six `(k,f)` pairs including half-integers, sign included, plus
+the vanishing case at `c != 0`. K1b by a tetrahedron with one edge at
+`j = 0`, which caps at both ends and collapses to a theta at ratio
+exactly `1/sqrt((2j1+1)(2j4+1))` — one `1/sqrt(2j+1)` per cap. They are
+fused into one move because K1a alone leaves `c` dangling, and the graph
+must stay closed and cubic between moves.
+
+**What it fixed.** `theta-with-handle` used to reduce to the dumbbell,
+which the old `is_goal` (`n <= 2`) accepted — terminating at cost 0 with
+two deltas and every `j = 0` constraint dropped. Silent incorrectness on
+valid input. It now reduces `bubble -> loop` to a true theta and emits
+`loopw(c)*delta(e,0)*delta(f,g)/sqrt(2*f+1)`, with the forcing present
+in the formula. `is_goal` is now `is_theta()` — two vertices, three
+parallel edges, no loop.
+
+**What it broke, found by machine.** Making loop states reachable and no
+longer silently accepted exposed that `interchanges` was unguarded
+against degenerate patterns. The flip phase was fitted against
+`wigner_9j` on a GENERIC patch (v0.4.0) — `e=(u,v)`, `P` a neighbour of
+`u`, `Q` of `v`, all distinct — and a self-loop makes `P == u`.
+Unguarded, the dumbbell (an irreducible terminal) "reduced" at cost 11
+through algebra never validated there. Both flip generators now skip
+loop legs, and the dumbbell is an honest dead end.
+
+**The coupling, and the vindication.** Loop excision is a FREE move, so
+Lemma 1's "no bubble or triangle => every move is a flip => S >= 1"
+became false at tadpole states. `sum_bound` now tests
+`excisable_loops()`, in the same commit — without it `h` would have been
+inadmissible at exactly the states the move was added to handle.
+
+The sharper result is what happened to the **opt-in decomposition
+bound**. It had 0 admissibility violations in v0.6.1. After one new free
+move it has **7**, every one at a state with an excisable loop: free
+vertex removal drops `C*` below `(n_i-2)/2` per piece. It was
+empirically admissible against every state ever tested, and the very
+next release broke it outright. **A bound verified against a move set is
+only valid for that move set** — which is precisely why v0.6.1 shipped
+the proven bound instead. Documented as unusable rather than quietly
+patched; it can be re-derived once bridge cut dissolves the degenerate
+states.
+
+**What it taught.** Extend the oracle before the move set. The instinct
+was to write loop excision and validate it afterwards; the oracle would
+have returned `0.0` and the "validation" would have been meaningless
+agreement between two broken things.
+
+**Verification.**
+
+- Shipped `h`: **0** admissibility violations over 75 states with a
+  computable `C*`; **0** step violations over 42,052 moves.
+  `scripts/certify_bounds.py` reports CERTIFIED (shipped heuristic).
+- Benchmarks re-certified against `h = 0` blind uniform-cost:
+  tetrahedron 1, prism 2, K3,3 13, cube 14, Petersen 37 — unchanged.
+- 58 tests green, 1 xfail (the exact layer, below).
+
+**Stress, before/after** (`--budget 30 --max-n 12`): all costs
+identical, A* expansions identical (1/2/3/4/11, random 4/4/7). One
+change: `petersen greedy` 7 -> 11 expansions at the same cost 37 — the
+stricter goal test makes weighted greedy walk to a true theta. Greedy
+carries no optimality guarantee, and A* is untouched.
+
+**Not addressed here.** Bridge cut and the dumbbell terminal both need
+the multi-component / empty-diagram state model (`is_goal` over
+components, Lemma 0 at `(n-2C)/2`, per-component bounds) — next PR. The
+exact layer has no oriented loop excision yet, so `solve_exact` still
+meets a non-theta and raises; pinned as a strict xfail rather than
+described.

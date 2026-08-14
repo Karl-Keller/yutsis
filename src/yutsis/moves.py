@@ -32,6 +32,48 @@ def excise_bubble(g: Graph, pair):
     return Graph(keep), fac, 0, 0, ("bubble", pair)
 
 
+def excise_loop(g: Graph, v):
+    """The k=1 move: excise a tadpole and cap its partner.
+
+    Derivation (docs/K1_SECTOR.md), both halves oracle-verified:
+
+      K1a  sum_m (-1)^(k-m) 3j(k k c; m -m mc) = sqrt(2k+1) d(c,0) d(mc,0)
+           -- closing two legs of v forces its third edge c to j = 0.
+      K1b  3j(a b 0; ma mb 0) = d(a,b) d(ma,-mb) (-1)^(a-ma)/sqrt(2a+1)
+           -- a vertex with a j=0 leg is removed and its other two edges
+           merge.
+
+    The two are fused into one move because K1a alone would leave c
+    dangling: the graph must stay closed and cubic between moves. Net
+    effect: v and its partner w both go, w's other two edges merge, and
+    n drops by 2 for NO 6j and NO summation -- a free move, which is
+    why yutsis.bounds.sum_bound must test for it (see the coupling note
+    in docs/K1_SECTOR.md).
+
+    Guard: w must be distinct from v and carry no loop of its own; the
+    loop-to-loop case is the irreducible dumbbell terminal."""
+    if v not in g.excisable_loops():
+        return None
+    loop_labels = [lab for a, b, lab in g.edges if a == b == v]
+    if len(loop_labels) != 1:
+        return None
+    k = loop_labels[0]
+    w, c = g.loop_partner(v)
+    rest = [(a, b, lab) for a, b, lab in g.edges
+            if lab != k and lab != c and v not in (a, b)]
+    at_w = [(a, b, lab) for a, b, lab in rest if w in (a, b)]
+    if len(at_w) != 2:
+        return None
+    keep = [e for e in rest if e not in at_w]
+    ends = []
+    for a, b, lab in at_w:
+        ends.append((b if a == w else a, lab))
+    (x, la), (y, _lb) = ends
+    keep.append((x, y, la))          # w's two edges merge, keeping la
+    fac = f"loopw({k})*delta({c},0)*delta({la},{_lb})/sqrt(2*{la}+1)"
+    return Graph(keep), fac, 0, 0, ("loop", v)
+
+
 def reduce_triangle(g: Graph, tri):
     """Contract a triangle, emitting its cap-tetrahedron 6j.
 
@@ -74,9 +116,22 @@ def interchanges(g: Graph):
     recoupling identity: emits one 6j, relabels e with a summed x."""
     out = []
     for u, v, lab in g.edges:
+        if u == v:
+            continue  # k=1 guard: see below
         un = [(w, l) for w, l, _ in g.adj[u] if w != v]
         vn = [(w, l) for w, l, _ in g.adj[v] if w != u]
         if len(un) != 2 or len(vn) != 2:
+            continue
+        # k=1 guard. The flip phase was determined by constrained fit
+        # against wigner_9j on a GENERIC patch (v0.4.0): e = (u,v) with
+        # P a neighbour of u and Q a neighbour of v, all distinct. A
+        # self-loop at u makes P == u, which is not that patch, and the
+        # fitted phase has never been validated there. Before the k=1
+        # sector such states were unreachable in practice; now they are
+        # not, so the guard is explicit. Without it the dumbbell -- an
+        # irreducible terminal -- "reduces" at cost 11 through
+        # unvalidated algebra.
+        if any(w in (u, v) for w, _l in un + vn):
             continue
         for (P, pl) in un:
             for (Q, ql) in vn:
@@ -122,9 +177,11 @@ def targeted_interchanges(g: Graph):
             e, pl = elab(u, v), elab(P, u)
             if e is None or pl is None:
                 continue
+            if P in (u, v) or u == v:
+                continue  # k=1 guard, as in interchanges()
             for Q, ql, _ in g.adj[v]:
-                if ql == e:
-                    continue
+                if ql == e or Q in (u, v):
+                    continue  # k=1 guard
                 key = (e, pl, ql, u)
                 if key in seen:
                     continue
