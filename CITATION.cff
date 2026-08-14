@@ -7,7 +7,7 @@ type: software
 authors:
   - family-names: Keller
     given-names: Karl
-version: 0.8.0
+version: 0.8.1
 date-released: "2026-08-14"
 license: MIT
 repository-code: "https://github.com/Karl-Keller/yutsis"

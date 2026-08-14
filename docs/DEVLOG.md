@@ -485,3 +485,74 @@ a single trailing section. Prose has no test suite; diff it.
 satisfied — degenerate states are dissolved rather than scored around —
 so the decomposition bound can be re-derived and re-certified against
 the completed move set.
+
+## Session 15 — v0.8.1 (2026-08-14): the merge lemma, and where the curve actually is
+
+**What was built.** Lemma 3 (the merge lemma), closing Finding 2; and
+`scripts/headroom.py` with the measurement that becomes Finding 5. No
+behaviour change.
+
+**Finding 2, closed.** The search dedups states by an ANONYMOUS
+certificate — j-labels discarded — which is what makes the state space
+small enough to search, and the justification had been folklore in a
+docstring. Now stated: every move's guard is a topological pattern and
+every move's price is a constant of its type, so a graph isomorphism
+carries any reduction to one of identical cost and `C*` is an
+isomorphism invariant. Labels are carried for the *algebra*, never for
+the *price*.
+
+Its boundary is stated with it, because that is the whole point: the
+lemma fails for cost models pricing by numerical magnitude, by label
+sharing, or by summation range. **A cost-model change is therefore also
+a canonicalization change.** Machine-checked rather than asserted —
+corpus graphs are relabelled at random and both the certificate and `C*`
+must be unchanged.
+
+**Finding 5 — the uncomfortable measurement.** A* must expand at least
+as many nodes as the optimal plan has moves, so `expanded - moves` is
+the entire prize a better bound could win, and comparing against `h = 0`
+says how much the shipped bound already collects.
+
+| n | moves | exp(h) | exp(h=0) | headroom | saved |
+|---|---|---|---|---|---|
+| 16 | 9 | 20 | 25 | 11 | 20% |
+| 22 | 16 | 222 | 228 | 206 | 3% |
+| 26 | 21 | 983 | 1004 | 962 | 2% |
+| 30 | 25 | 2010 | 2040 | 1985 | 2% |
+
+The wall is at **n ~ 28** — not benchmark scale, but not far beyond it.
+At n = 30 the search expands 2010 nodes for a 25-move plan: **99% of the
+work is waste, and the heuristic removes a fiftieth of it.** Worse, the
+`saved` column *decays* with n (20% at n=16 to 2% at n=30) — the bound
+is becoming less useful with scale, exactly backwards.
+
+**Tested, not assumed: local bounds cannot fix it.** The girth
+strengthening `S >= true_girth - 3` — provable, and cheap now that
+`true_girth()` exists — was implemented and measured at **0-3%**,
+indistinguishable from the shipped bound. The arithmetic explains it: at
+n = 30 the optimal cost is 135, of which summations are ~110
+(`S ~ 11`), and any local bound returns at most 20. A heuristic
+estimating 20 out of 135 cannot prune.
+
+**What it taught.** Two sessions ago the same measurement at n <= 14 said
+the 6j term "changes nothing", and I concluded the heuristic did not
+matter. It was the right call for that decision (ship the proven bound,
+not the conjectured one) and the wrong lesson to generalize: the
+benchmarks were simply too small to distinguish a working heuristic from
+a broken one. **Measure at the size where the thing hurts, not the size
+where the tests run.**
+
+The corollary is the sharpest brief the carving/branchwidth work has
+had. It is not "tighten the bound" — it is **produce an estimate of
+remaining summations that scales with n**. Width invariants grow with
+the graph; girth does not. That is why the edge-separator redirect is
+substantive rather than a technicality, and the closure criterion is now
+concrete: a bound whose `saved` column does not decay with n.
+
+**Verification.** 91 tests green; certify_bounds CERTIFIED; benchmarks
+and stress unchanged (no behaviour change in this release).
+
+**Status.** Correctness is closed: admissibility certified, Petersen
+certified minimal, the k=1 sector complete, every move exact and
+oracle-verified. Performance is open, and Finding 5 says precisely what
+would move it.

@@ -111,6 +111,49 @@ search decision does not justify an unproven admissibility claim.
 one flip or five, so it bounds Petersen at `S >= 1` against a certified
 `S = 3`. Strengthening it is Finding 3.
 
+## Lemma 3 (the merge lemma)
+
+The search dedups states by `Graph.canonical()`, an **anonymous**
+topological certificate: j-labels are discarded, so two states with the
+same shape are merged even when their labels differ. This is what makes
+the state space small enough to search. It needs saying why it is sound.
+
+**Lemma.** For the cost model `cost = #6j + SUM_PENALTY * #sums`, the
+minimum remaining cost `C*(G)` depends only on the isomorphism class of
+the underlying multigraph, not on the edge labels.
+
+*Proof.* Each move's guard is a purely topological pattern — a pair of
+parallel edges (bubble), a self-loop with a non-loop partner (loop
+excision), a 1-line cut (bridge), a 3-cycle (triangle), an internal edge
+with two distinct neighbours a side (flip). Each move's *cost*
+contribution is a constant of its type (`d6`, `dsums`), independent of
+which labels occupy the pattern. So a graph isomorphism carries any
+reduction of `G` to a reduction of `G'` of identical cost, and `C*` is
+an isomorphism invariant. Labels are carried along for the *algebra*
+— which factors get emitted — but never for the *price*. ∎
+
+**Machine-checked**: `tests/test_bounds.py` relabels corpus graphs at
+random and asserts both the certificate and `C*` are unchanged.
+
+### The boundary — where this fails
+
+The lemma is a statement about **this** cost model, and it is exactly as
+strong as the claim that price is label-independent. It would **fail**
+for:
+
+- **magnitude-aware cost models** — pricing a formula by the numerical
+  size of its terms, or by cancellation, makes cost depend on the j
+  values themselves;
+- **sparsity- or sharing-aware cost models** — pricing by how many
+  summation variables are *shared* between factors, or by reuse of a
+  cached 6j, makes cost depend on which labels coincide;
+- **evaluation-order models** that price the summation ranges (a sum
+  over `x` costs `2x+1` terms), since the range depends on the labels.
+
+Any of these breaks the merge, and with it the state-space collapse that
+makes the search tractable. A cost model change is therefore also a
+canonicalization change.
+
 ## The k-line anchor and the 2-cut decomposition (opt-in)
 
 In the k-line calculus a k-line separation of a closed diagram costs
