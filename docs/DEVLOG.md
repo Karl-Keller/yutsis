@@ -114,3 +114,144 @@ self-calibrating, oracle-verified compiler from angular momentum
 algebra toward quantum circuits. Next: larger trees and higher spins,
 qudit generalization, Qiskit emission, and cost-aware path selection
 (the solver's summation costs steering the associahedron search).
+
+## Session 11 — v0.6.1 (2026-08-14): the guarantee was void
+
+**What was built.** `yutsis.bounds`, carrying a corrected admissible
+heuristic; `search.optimal_cost` and `solve(blind=True)`, the
+ground-truth searchers; `tests/test_bounds.py` and
+`scripts/certify_bounds.py`. Derivation, proof status and boundaries in
+`docs/BOUNDS.md`.
+
+**What broke — and it was already broken.** Reading `CLAUDE.md`'s iron
+rule against the incumbent turned up a counterexample to the shipped
+heuristic's admissibility. `search.heuristic` used `(n-2)/2` as its 6j
+term. Lemma 0 makes the error exact: every reduction uses exactly
+`(n-2)/2` vertex-removing moves, but bubble excisions are among them and
+emit **zero** 6j, so
+
+    #6j = (n-2)/2 - B + S
+
+and the shipped bound silently assumed `B = 0`. It is an *over*-estimate
+wherever a bubble is reachable, so A* was not guaranteed optimal — the
+project's central claim, void in principle. Measured scale: **58 of 80**
+reachable states with a computable optimum (72.5%). Not an exotic
+corner.
+
+Two counterexamples, now pinned as named regression tests:
+
+- `BUBBLE_COUNTEREXAMPLE` (n=4 multigraph): excising its bubble lands
+  directly on theta. `C* = 0`, `h_old = 1`.
+- `TWO_DIAMOND_COUNTEREXAMPLE` (n=8, **simple** and bubble-free): two
+  K4-minus-an-edge blocks joined by a 2-cut. Contracting a diamond's
+  triangle *births* a parallel pair; excising it drops `n` by 4 for one
+  6j. `C* = 2`, `h_old = 3`.
+
+The second killed the first fix attempt. Discounting by the bubbles
+*currently present* is wrong twice over: bubbles are created
+mid-reduction, and bubble-free simple states over-estimate too. Scoping
+admissibility to bubble-free states would have shipped a still-broken
+guarantee.
+
+Why no test caught it: `random_cubic` rejects parallel edges, so no
+generated case could reach a bubble-bearing state, and every benchmark
+optimum happens to use `B = 0` — which is why `#6j = (n-2)/2 + S`
+reproduces all five published costs. The identity that made the
+benchmarks look right was the identity hiding the bug.
+
+**PETERSEN IS CERTIFIED: the minimum is three summations, not two.**
+`C*(Petersen) = 37` by uniform-cost search (`h = 0`) over the *blind*
+move set. By Lemma 0, `cost = 4 - B + 11*S`, so any `S = 2` reduction
+costs at most 26. It costs 37. The shipped 7-6j / 3-sum formula is
+optimal over the FULL move set, not merely the cycle-targeted class.
+Confirmed three ways: uniform-cost 37, blind-move A* 37 (18
+expansions), targeted A* 37 (11 expansions). Finding 3 prong 1, closed.
+
+The premise of the girth-5 wall was **stale**. "Petersen defeats both A*
+and weighted greedy under blind flips" was measured in v0.4.0, *before*
+nauty landed in v0.5.0. The search dedups on anonymous topology, so
+nauty collapsed the blind state space — blind-move A* now finishes in 18
+expansions and 0.0 s. The move restriction was never load-bearing for
+this benchmark, and nobody re-measured after the change that fixed it.
+
+**What it taught.** Three things, and the last one changed the ship
+decision.
+
+*Under-splitting is unsafe; over-splitting is merely weak.* The first
+decomposition skipped 2-cuts whose stubs landed on a common vertex,
+silently under-decomposing and leaving 10 violations. Recognising that
+the safe direction is asymmetric turned a subtle bug into a one-line
+policy.
+
+*Certify the induction step, not the outcome.* Sampling `h <= C*` only
+covers states with a computable optimum. Certifying the potential-
+function step `Phi(G) <= Phi(G') + d6` over every move covers everything
+reachable — and it is what exposed the failure below. A narrower corpus
+had reported this clean; widening it to n=10/12 seeds did not.
+
+*A bound that cannot change a decision is not worth an unproven claim.*
+The 2-cut decomposition bound is derived, elegant, exact on both
+counterexamples, and empirically admissible (0 violations over 80
+states, tight on 54). But its proof fails: **310 of 42,611 moves**
+violate the step inequality, all at states carrying a self-loop or
+bridge, where a move can *relocate* the degeneracy between pieces and
+collapse `Phi` by 2 for one 6j (observed: `[6 clean, 2 degenerate]` ->
+`[2 clean, 6 degenerate]`). Two repairs were rejected **by machine, not
+by argument** — discounting self-loop vertices is *directly
+inadmissible* (6 violations; it was the intuitively appealing fix), and
+a whole-graph degeneracy gate still leaves 96 step violations.
+
+Then the measurement that settled it: replacing the decomposition term
+with **0** produces identical costs *and* identical expanded-node counts
+on every benchmark and on random cubic graphs out to n=14. The term
+never changed a single search decision. So the shipped `heuristic` is
+the proven part only — `h = 0 + h_sum` — and the decomposition is
+retained as an opt-in module (`sixj_bound_decomposition`) with its
+certification status stated in its own docstring. Shipping the stronger
+bound would have repeated v0.6.0's exact mistake: an empirically
+validated, unproven bound that passes every test it has.
+
+**Verification.**
+
+- Re-certification: benchmark costs recomputed by uniform-cost search
+  (`h = 0`, blind moves): tetrahedron 1, prism 2, K3,3 13, cube 14,
+  Petersen 37 — all equal to the v0.6.0 published costs. **The
+  guarantee was void; the results were correct.**
+- Shipped `h`: 0 admissibility violations over 80 states, 0 step
+  violations over 42,611 moves.
+- Opt-in decomposition: 0 admissibility violations; 310 step violations,
+  **0 of them at clean states**, which is the documented boundary.
+- 42 tests green (23 existing + 19 new), 2.0 s.
+
+**Stress, before/after** (`scripts/stress.py --budget 30 --max-n 12`):
+expanded-node counts and costs **identical** on every case —
+tetrahedron 1, prism 2, K3,3 3, cube 4, Petersen 11 (A*) / 7 (greedy),
+random n=8/10/12 at 4/4/7.
+
+**Not addressed here.** The summation term is untouched and still weak
+(`S >= 1` whenever girth `>= 4`), so Petersen is bounded at `S >= 1`
+against a now-certified `S = 3` — the gap Finding 3 prong 2 must close,
+with the redirect to edge-separator invariants (carving/branchwidth)
+recorded in `NEXT_STEPS.md`. Ruff is deferred to that branch to keep
+this hotfix reviewable.
+
+**Review addendum (same day).** Three review items settled before merge.
+Lemma 1 gained its explicit proof in `docs/BOUNDS.md`, and writing it
+out corrected a premise: self-loop states do NOT report low girth and
+skip the bonus — `girth_lower()` returns 4 for a tadpole (a `(u,u)`
+edge is not a `bubbles()` pair), so they DO receive it, correctly,
+because their only successors are flips. The proof turns out not to use
+girth at all: `girth_lower()` computes no cycle length, it is a
+move-availability predicate wearing a girth costume, and that is the
+whole basis of the bound.
+
+Which exposes a trap for the branch that follows: **`girth_lower()` is
+not a valid lower bound on girth** — it returns 4 on states whose true
+girth is 1. Any carving/branchwidth bound wanting a real girth must
+call `girth_cycle()`. Recorded as an entry condition in NEXT_STEPS.md
+and pinned by `test_girth_lower_is_not_a_girth_bound_on_self_loop_states`.
+
+`CITATION.cff` had drifted to 0.6.0. Bumped, and the three-way version
+agreement (pyproject / `__init__` / CITATION) is now enforced by
+`tests/test_metadata.py` instead of by memory — a bumped version that
+turns CI red is the ritual working. 48 tests green.

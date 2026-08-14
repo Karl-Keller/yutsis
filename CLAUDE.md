@@ -56,9 +56,15 @@ admissibility test. CI must stay green.
 5. Housekeeping per session: append a dated entry to docs/DEVLOG.md
    (what was built, what broke, what it taught); update NEXT_STEPS.md
    Finding 3 status and the README "Next steps" section; bump version
-   in BOTH pyproject.toml and src/yutsis/__init__.py (0.7.0 on
-   completion); rerun scripts/stress.py and record expanded-node
-   counts before/after in the DEVLOG entry.
+   in ALL THREE of pyproject.toml, src/yutsis/__init__.py and
+   CITATION.cff (version AND date-released) (0.7.0 on completion);
+   rerun scripts/stress.py and record expanded-node counts
+   before/after in the DEVLOG entry.
+
+   CITATION.cff drifted to 0.6.0 while the package moved on, so the
+   three-way version agreement is now enforced by
+   tests/test_metadata.py rather than by memory. If you bump a version
+   and CI goes red, that is the ritual working.
 6. Linting: add ruff (pyproject [tool.ruff], line-length 88) and a
    `ruff check src tests` step to .github/workflows/ci.yml; fix what it
    flags in touched files only.

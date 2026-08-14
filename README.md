@@ -20,7 +20,7 @@ trusted on inspection.
 ## Install
 
     pip install -e ".[dev,perf]"   # perf pulls pynauty for fast canonicalization
-    pytest -q                      # 23 tests: oracles, theorems, compiler
+    pytest -q                      # 42 tests: oracles, theorems, bounds, compiler
     python -m yutsis               # benchmark reductions
 
 ## Showcase: the Petersen graph (a 15j symbol)
@@ -28,7 +28,9 @@ trusted on inspection.
 The Petersen graph — girth 5, no local bubble or triangle anywhere — is
 the classic hard case for recoupling reduction. The solver reduces it
 in 11 node expansions (~0.01 s) to a fully signed formula: **three
-nested summations, seven 6j symbols**, and a thirteen-term phase.
+nested summations, seven 6j symbols**, and a thirteen-term phase — and
+as of v0.6.1 those three summations are **certified minimal** over the
+unrestricted move set, not merely cheapest among the moves searched.
 
 ```python
 from sympy import S
@@ -47,7 +49,19 @@ assignments — to 1e-9. Run it yourself:
 
     python scripts/verify_petersen.py
 
-## Verified results (v0.6.0)
+## Verified results (v0.6.1)
+
+- **Admissibility, repaired and certified** (`yutsis.bounds`,
+  [docs/BOUNDS.md](docs/BOUNDS.md)): the v0.6.0 heuristic was
+  inadmissible — its `(n-2)/2` 6j term assumed no bubble excision ever
+  occurs, over-estimating on **58 of 80** reachable states with a
+  computable optimum, which voided the A* optimality guarantee. Fixed,
+  with both counterexamples pinned as regression tests. The published
+  benchmark costs were **re-certified**, not caveated: recomputed by
+  uniform-cost search (`h = 0`, blind moves) they are unchanged —
+  tetrahedron 1, prism 2, K3,3 13, cube 14, Petersen 37
+- **Petersen's minimum is three summations** — certified over the full
+  move set, not merely the cycle-targeted class (see Findings below)
 
 - **Oracle conventions phase-exact**: the Racah-oriented tetrahedron
   reproduces `wigner_6j` including sign on integer and half-integer
@@ -94,14 +108,18 @@ analysis in [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md)):
    subdivided multigraph solve it; the residual is stating the
    label-discarding merge argument as a proper lemma, with its boundary
    explicit (it fails for magnitude- or sparsity-aware cost models).
-3. **Girth-5 wall** (open, and the deepest). Cycle-targeted moves
-   retired the wall but restrict the move class, and Petersen's true
-   minimum (three summations, or two?) is uncertified. The
-   highest-value attack: a treewidth-derived admissible bound —
-   summation count is governed by the same invariants as tensor-network
-   contraction complexity — which would certify Petersen, restore
-   provable optimality over the full move set, and marry this project
-   to the tensor-network literature in one stroke.
+3. **Girth-5 wall** (Petersen closed in v0.6.1; the bound still open).
+   **Petersen's minimum is three summations, certified**: uniform-cost
+   search with `h = 0` over the *unrestricted* move set gives
+   `C* = 37`, and since `cost = (n-2)/2 - B + 11S`, any two-summation
+   reduction would cost at most 26. The wall's premise was also stale —
+   "Petersen defeats blind flips" predates nauty, which collapsed the
+   blind state space; blind-move A* now finishes in 18 expansions. What
+   remains is the *bound*: the summation term still returns `S >= 1`
+   whether the truth is one flip or five. The redirect that matters —
+   for cubic graphs the live invariants are **edge**-separator ones
+   (carving width, branchwidth), not vertex treewidth, since the
+   `(k-3)` calculus lives on edge cuts.
 
 Broader roadmap: cost-aware associahedron search and Qiskit emission in
 `yutsis.circuits`; qudit generalization; general n-line separator cuts;

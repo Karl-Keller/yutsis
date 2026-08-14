@@ -2,9 +2,12 @@
 
 Runs the benchmark suite plus random cubic graphs of growing size, in
 optimal (A*) and, where noted, greedy mode, with a wall-clock budget per
-case. Timeouts are findings, not failures: girth >= 5 inputs (Petersen)
-currently defeat both modes under blind edge flips -- see README Findings
-and the milestone-3 plan (cycle-targeted interchanges).
+case. Timeouts are findings, not failures.
+
+(Historical note: this docstring used to say girth >= 5 inputs defeat
+both modes under blind edge flips. That was measured in v0.4.0, before
+nauty canonicalization; blind-move A* now solves Petersen in 18
+expansions, and its three-summation optimum is certified -- v0.6.1.)
 
 Usage:
     python scripts/stress.py [--budget SECONDS] [--max-n N]
