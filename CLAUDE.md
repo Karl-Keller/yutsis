@@ -35,9 +35,20 @@ where measured; the diff rule certifies intent everywhere. Capture the
 oracle BEFORE the first edit, or "identical" is unfalsifiable.
 
 Prose needs an oracle too. v0.8.2 mangled docstrings across 25 files
-with a regex while every test stayed green, because tests do not read
-documentation; compare docstrings via `ast.get_docstring` after any
-bulk edit. Commit before each risky bulk edit, so revert is a one-liner.
+while every test stayed green, because tests do not read documentation.
+Compare docstrings via `ast.get_docstring` after any bulk edit, and
+commit before each risky one so revert is a one-liner.
+
+For bulk edits, use a tool of the right CATEGORY. String-ness and
+comment-ness are properties of the token stream, not of a line, so no
+line-local test can decide whether it is inside a docstring -- reach
+for `tokenize` or `ast`, never substring guards. The v0.8.2 failure was
+a `str.split(";")` behind "does not start with #" and "contains no
+quote character"; both leak, because trailing comments do not start
+with `#` and a triple-quoted string's interior lines contain no quotes.
+Splitting inside a comment raises SyntaxError and is caught at once;
+splitting inside a docstring is still valid Python and is caught by
+nothing.
 
 ## Current task: the width-derived summation bound (Finding 5 / Finding 3)
 
