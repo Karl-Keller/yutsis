@@ -685,3 +685,76 @@ ruff found two latent bugs among the style: a discarded
 `components()` scan in `Graph.bridges`, and an assert MESSAGE in
 `test_phase.py` referencing an orphaned name, which would have raised
 NameError instead of reporting a failure — on the failure path only.
+
+## Performance — v0.8.3 (2026-08-15): the two hot spots
+
+Behavior-preserving, under the standing diff-discipline rule. The
+oracle was captured before the first edit; all six items are identical
+after.
+
+**Where the time went.** Profiling the n = 26 search — the size where
+Finding 5 says the wall starts — put 57% of it in `Graph.bridges`, code
+added during the k=1 sector. It removed each edge in turn and re-ran a
+BFS to see whether the graph fell apart, rebuilding the adjacency *and*
+calling `self.components()` inside that loop: `components()` ran 51,610
+times for 1,876 `bridges()` calls.
+
+**Tarjan.** One DFS, O(V + E). An edge is a bridge when the subtree
+below it has no back edge reaching at or above its parent. Three
+properties of this graph type the textbook version glosses over, all in
+the docstring:
+
+- the parent edge is skipped by EDGE INDEX, not by vertex — skip by
+  vertex and a second parallel edge to the parent goes with it, and a
+  parallel edge is exactly what makes an edge *not* a bridge;
+- a self-loop contributes two adjacency entries at one vertex, both
+  already visited, so it reads as a back edge to itself and is never
+  reported: a tadpole disconnects nothing;
+- the DFS restarts at every unvisited vertex, because states stopped
+  being connected when bridge cut arrived in v0.8.0.
+
+Iterative rather than recursive, so deep diagrams cannot exhaust the
+stack. `cuttable_bridges` also dropped a per-bridge linear scan for an
+edge's endpoints, and returns early when there are no bridges — the
+common case, where it now does no scan at all.
+
+**Then triangles.** With bridges gone, `Graph.triangles` was the
+largest remaining pure-Python cost at 26%: it tested all V-choose-3
+triples and rebuilt two neighbour sets *inside* that loop — 2600
+iterations and 5200 set constructions per call at n = 26, once per
+generated state. Now each neighbourhood is built once and the third
+vertex comes from one set intersection per adjacent pair.
+
+Both preserve output ORDER, not just content, because callers index
+into these results.
+
+**Verification.** Each change was differential-tested against the
+implementation it replaced over the same 3,000 reachable states —
+comparing lists for order as well as content — with the traps covered:
+2,348 states carrying parallel edges, 36 with self-loops, 33
+disconnected, 365 with bridges, 2,221 with triangles. 0 mismatches
+each.
+
+**Result**, end-to-end wall clock through `scripts/headroom.py`:
+
+| n | before | after |
+|---|---|---|
+| 20 | 0.07s | 0.04s |
+| 22 | 0.21s | 0.11s |
+| 24 | 0.13s | 0.06s |
+| 26 | 1.29s | **0.68s** |
+
+nauty canonicalization is now dominant at ~48%, which is C-extension
+work and the right thing to be limited by.
+
+**A measurement correction.** The bridges commit message quotes
+`3.30s -> 1.455s` for n = 26. Those are cProfile timings; the profiler
+inflates call-heavy code, so they overstate the absolute numbers even
+though the ratio is roughly right. The honest end-to-end figures are
+the table above. Quote the harness, not the profiler.
+
+**What this does and does not buy.** It halves time-per-expansion; it
+changes no expansion counts, and Finding 5 — the heuristic recovering
+~2% of a 99% waste, decaying with n — is untouched. The two are
+independent halves of the same wall: this one is now paid down, and the
+width-derived bound remains the open problem.
