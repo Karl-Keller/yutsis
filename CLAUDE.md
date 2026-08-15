@@ -38,6 +38,12 @@ the PR description:
   - scripts/verify_petersen.py: +0.004629630
   - scripts/headroom.py: identical table
 
+DIFF DISCIPLINE: a refactor diff must not change any numeric constant,
+phase coefficient, cost weight, or bound expression. If a change touches
+a number, it is not a refactor — split it into its own PR. The oracle
+table is necessary, not sufficient: it certifies behavior where measured;
+the diff rule certifies intent everywhere.
+
 TARGETS, in order:
   1. Split oriented.py (662 lines, seven concerns) into state.py
      (OGraph, components), exact_moves.py (the five exact moves),
