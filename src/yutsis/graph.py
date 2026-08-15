@@ -1,7 +1,6 @@
 """Cubic multigraph state representation for Yutsis diagrams."""
 from __future__ import annotations
 
-import itertools
 from collections import Counter, defaultdict
 
 
@@ -30,13 +29,31 @@ class Graph:
         return [pair for pair, c in cnt.items() if c == 2]
 
     def triangles(self):
-        tris = []
+        """Vertex triples forming a 3-cycle, in lexicographic order.
+
+        Enumerated from the edges rather than from all V-choose-3
+        triples: for each adjacent pair (a, b) the third vertex must lie
+        in both neighbourhoods, so the candidates are one set
+        intersection. The previous version tested every triple AND
+        rebuilt two neighbour sets inside that loop -- at n = 26 that is
+        2600 iterations and 5200 set constructions per call, and this is
+        called once per generated state.
+
+        Order is preserved exactly: `vs` is sorted, `a` and `b` ascend
+        through it, and the third vertex is taken sorted from above `b`,
+        which is the order itertools.combinations produced.
+        """
         vs = sorted(self.adj)
-        for a, b, c in itertools.combinations(vs, 3):
-            nb_a = {v for v, _, _ in self.adj[a]}
-            nb_b = {v for v, _, _ in self.adj[b]}
-            if b in nb_a and c in nb_a and c in nb_b:
-                tris.append((a, b, c))
+        nbrs = {v: {w for w, _lab, _i in self.adj[v] if w != v} for v in vs}
+        tris = []
+        for i, a in enumerate(vs):
+            nb_a = nbrs[a]
+            for j in range(i + 1, len(vs)):
+                b = vs[j]
+                if b not in nb_a:
+                    continue
+                shared = nb_a & nbrs[b]
+                tris.extend((a, b, c) for c in sorted(shared) if c > b)
         return tris
 
     def self_loops(self):
