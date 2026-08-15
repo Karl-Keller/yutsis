@@ -1,5 +1,5 @@
 from yutsis import solve
-from yutsis.benchmarks import tetrahedron, prism, k33, cube
+from yutsis.benchmarks import cube, k33, prism, tetrahedron
 
 
 def test_tetrahedron_is_one_6j():

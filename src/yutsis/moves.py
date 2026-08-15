@@ -6,7 +6,9 @@ v0 tracks factors structurally; the Danos-consistent phase/weight engine
 against yutsis.oracle in CI.
 """
 from __future__ import annotations
+
 import itertools
+
 from .graph import Graph
 
 fresh = itertools.count(1)
@@ -160,8 +162,8 @@ def interchanges(g: Graph):
     for u, v, lab in g.edges:
         if u == v:
             continue  # k=1 guard: see below
-        un = [(w, l) for w, l, _ in g.adj[u] if w != v]
-        vn = [(w, l) for w, l, _ in g.adj[v] if w != u]
+        un = [(w, lb) for w, lb, _ in g.adj[u] if w != v]
+        vn = [(w, lb) for w, lb, _ in g.adj[v] if w != u]
         if len(un) != 2 or len(vn) != 2:
             continue
         # k=1 guard. The flip phase was determined by constrained fit
@@ -181,11 +183,14 @@ def interchanges(g: Graph):
                 edges, done = [], set()
                 for a, b, l2 in g.edges:
                     if "e" not in done and {a, b} == {u, v} and l2 == lab:
-                        edges.append((u, v, x)); done.add("e")
+                        edges.append((u, v, x))
+                        done.add("e")
                     elif "p" not in done and {a, b} == {u, P} and l2 == pl:
-                        edges.append((v, P, pl)); done.add("p")
+                        edges.append((v, P, pl))
+                        done.add("p")
                     elif "q" not in done and {a, b} == {v, Q} and l2 == ql:
-                        edges.append((u, Q, ql)); done.add("q")
+                        edges.append((u, Q, ql))
+                        done.add("q")
                     else:
                         edges.append((a, b, l2))
                 ng = Graph(edges)
@@ -232,11 +237,14 @@ def targeted_interchanges(g: Graph):
                 edges, done = [], set()
                 for a, b, l2 in g.edges:
                     if "e" not in done and {a, b} == {u, v} and l2 == e:
-                        edges.append((u, v, x)); done.add("e")
+                        edges.append((u, v, x))
+                        done.add("e")
                     elif "p" not in done and {a, b} == {u, P} and l2 == pl:
-                        edges.append((v, P, pl)); done.add("p")
+                        edges.append((v, P, pl))
+                        done.add("p")
                     elif "q" not in done and {a, b} == {v, Q} and l2 == ql:
-                        edges.append((u, Q, ql)); done.add("q")
+                        edges.append((u, Q, ql))
+                        done.add("q")
                     else:
                         edges.append((a, b, l2))
                 ng = Graph(edges)

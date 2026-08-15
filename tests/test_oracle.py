@@ -1,7 +1,9 @@
 """CI tests: oracle conventions and solver claims, validated numerically."""
 from sympy import S
 from sympy.physics.wigner import wigner_6j, wigner_9j
-from yutsis.oracle import ClosedDiagram, theta, tetrahedron, prism, k33
+
+from yutsis.oracle import ClosedDiagram, k33, prism, tetrahedron, theta
+
 
 def close(a, b, tol=1e-9):
     return abs(a - b) < tol
@@ -57,6 +59,8 @@ def test_prism_factorizes_up_to_phase():
     assert close(abs(v), abs(p))   # magnitude exact; sign is milestone-2 phase
 
 if __name__ == "__main__":
-    test_theta_normalization(); test_tetrahedron_is_6j_phase_exact()
-    test_k33_is_9j_phase_exact(); test_prism_factorizes_up_to_phase()
+    test_theta_normalization()
+    test_tetrahedron_is_6j_phase_exact()
+    test_k33_is_9j_phase_exact()
+    test_prism_factorizes_up_to_phase()
     print("all oracle tests pass")

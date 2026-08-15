@@ -3,6 +3,7 @@ import itertools
 
 from sympy import S
 from sympy.physics.wigner import wigner_9j
+
 import yutsis.oriented as O
 from yutsis.benchmarks import oriented_dumbbell as dumbbell
 from yutsis.benchmarks import oriented_k33

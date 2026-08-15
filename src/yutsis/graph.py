@@ -1,5 +1,6 @@
 """Cubic multigraph state representation for Yutsis diagrams."""
 from __future__ import annotations
+
 import itertools
 from collections import Counter, defaultdict
 
@@ -132,7 +133,6 @@ class Graph:
         so a single line crossing a separation carries no angular
         momentum (docs/K1_SECTOR.md)."""
         from collections import deque
-        base = len(self.components())
         out = []
         for i, (u, _v, lab) in enumerate(self.edges):
             adj = {}
@@ -162,7 +162,7 @@ class Graph:
         loops = set(self.self_loops())
         out = []
         for lab in self.bridges():
-            u, v = next((a, b) for a, b, l in self.edges if l == lab)
+            u, v = next((a, b) for a, b, lb in self.edges if lb == lab)
             if u == v or u in loops or v in loops:
                 continue
             out.append(lab)
@@ -253,10 +253,11 @@ class Graph:
                 for k, (u, v, lab) in enumerate(self.edges):
                     ev = n0 + k
                     adj[ev] = [idx[u], idx[v]]
+                colours = [set(range(n0)),
+                           set(range(n0, n0 + len(self.edges)))]
                 g = pynauty.Graph(n0 + len(self.edges),
                                   adjacency_dict=adj,
-                                  vertex_coloring=[set(range(n0)),
-                                                   set(range(n0, n0 + len(self.edges)))])
+                                  vertex_coloring=colours)
                 self._canon = pynauty.certificate(g)
             except ImportError:
                 import itertools

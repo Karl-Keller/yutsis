@@ -16,10 +16,17 @@ module.
 from __future__ import annotations
 
 from .benchmarks import oriented_prism
-from .exact_moves import (FLIP_PHI, cut_bridge_exact, dumbbell_factor,
-                          excise_bubble_exact, excise_loop_exact,
-                          interchange_exact, reduce_prism_exact,
-                          reduce_triangle_exact, theta_sign)
+from .exact_moves import (
+                          FLIP_PHI,
+                          cut_bridge_exact,
+                          dumbbell_factor,
+                          excise_bubble_exact,
+                          excise_loop_exact,
+                          interchange_exact,
+                          reduce_prism_exact,
+                          reduce_triangle_exact,
+                          theta_sign,
+)
 from .replay import evaluate_expr, replay, solve_exact
 from .state import OGraph, og_components
 

@@ -24,8 +24,8 @@ import argparse
 from collections import deque
 
 from yutsis import benchmarks as B
-from yutsis.bounds import (has_bridge, has_self_loop, heuristic,
-                           sixj_bound_decomposition as sixj_bound)
+from yutsis.bounds import has_bridge, has_self_loop, heuristic
+from yutsis.bounds import sixj_bound_decomposition as sixj_bound
 from yutsis.search import optimal_cost, successors
 
 PUBLISHED = {"tetrahedron": 1, "prism": 2, "k33": 13, "cube": 14,
@@ -130,7 +130,6 @@ def main():
     print("=" * 66)
     d_adm = d_step = d_step_clean = d_tight = 0
     for g in corpus:
-        key = g.canonical()
         phi = sixj_bound(g)
         if g.n <= 8:
             c = optimal_cost(g)

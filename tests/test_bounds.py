@@ -12,9 +12,14 @@ from collections import deque
 import pytest
 
 from yutsis import benchmarks as B
-from yutsis.bounds import (has_bridge, has_self_loop, heuristic,
-                           sixj_bound_decomposition, sum_bound,
-                           three_edge_pieces)
+from yutsis.bounds import (
+    has_bridge,
+    has_self_loop,
+    heuristic,
+    sixj_bound_decomposition,
+    sum_bound,
+    three_edge_pieces,
+)
 from yutsis.graph import Graph
 from yutsis.search import optimal_cost, successors
 

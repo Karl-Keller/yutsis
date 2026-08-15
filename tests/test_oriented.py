@@ -1,8 +1,9 @@
 """Oriented reduction with exact signs, validated against the oracle."""
 from sympy import S
 from sympy.physics.wigner import wigner_6j
-from yutsis.oriented import reduce_prism_exact
+
 from yutsis.oracle import prism
+from yutsis.oriented import reduce_prism_exact
 
 
 def s6(*a):
@@ -15,14 +16,14 @@ def s6(*a):
 PHASE, FACTORS = reduce_prism_exact()
 
 
-def check(l, k, j):
-    jm = dict(zip(("l1", "l2", "l3"), l))
+def check(ltri, k, j):
+    jm = dict(zip(("l1", "l2", "l3"), ltri))
     jm.update(zip(("k1", "k2", "k3"), k))
     jm.update(zip(("j1", "j2", "j3"), j))
     pred = (PHASE.evaluate(jm)
             * s6(*[jm[x] for x in FACTORS[0]])
             * s6(*[jm[x] for x in FACTORS[1]]))
-    assert abs(prism(*l, *k, *j).value() - pred) < 1e-9
+    assert abs(prism(*ltri, *k, *j).value() - pred) < 1e-9
 
 
 def test_oriented_prism_all_integer():

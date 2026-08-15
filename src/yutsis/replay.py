@@ -9,10 +9,15 @@ survives as a re-export shim.
 """
 from __future__ import annotations
 
-from .exact_moves import (cut_bridge_exact, dumbbell_factor,
-                          excise_bubble_exact, excise_loop_exact,
-                          interchange_exact, reduce_triangle_exact,
-                          theta_sign)
+from .exact_moves import (
+    cut_bridge_exact,
+    dumbbell_factor,
+    excise_bubble_exact,
+    excise_loop_exact,
+    interchange_exact,
+    reduce_triangle_exact,
+    theta_sign,
+)
 from .phase import PhaseExpr
 from .state import OGraph, og_components
 
@@ -38,14 +43,18 @@ def replay(og: OGraph, moves):
     for mv in moves:
         if mv[0] == "bubble":
             og, ph, d, wlab = excise_bubble_exact(og, mv[1])
-            deltas.append(d); weights.append(wlab)
+            deltas.append(d)
+            weights.append(wlab)
         elif mv[0] == "loop":
             og, ph, zlab, d, snum, sden = excise_loop_exact(og, mv[1])
-            zeros.append(zlab); deltas.append(d)
-            sqrt_num.append(snum); sqrt_den.append(sden)
+            zeros.append(zlab)
+            deltas.append(d)
+            sqrt_num.append(snum)
+            sqrt_den.append(sden)
         elif mv[0] == "bridge":
             og, ph, zlab, (du, dw), (sdu, sdw) = cut_bridge_exact(og, mv[1])
-            zeros.append(zlab); deltas.extend((du, dw))
+            zeros.append(zlab)
+            deltas.extend((du, dw))
             sqrt_den.extend((sdu, sdw))
         elif mv[0] == "tri":
             og, ph, args = reduce_triangle_exact(og, mv[1])
@@ -53,7 +62,9 @@ def replay(og: OGraph, moves):
         else:
             _, (u, v, e), Ppl, Qql = mv
             og, ph, x, args, roles = interchange_exact(og, e, Ppl, Qql)
-            sums.append(x); sixjs.append(args); flip_roles.append(roles)
+            sums.append(x)
+            sixjs.append(args)
+            flip_roles.append(roles)
         total = total * ph
     # Finalize every component: bridge cut splits the state, so the end
     # of a reduction is a SET of irreducible diagrams -- thetas and

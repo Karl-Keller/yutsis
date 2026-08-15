@@ -22,7 +22,7 @@ import yutsis.oriented as O
 from yutsis.graph import Graph
 from yutsis.moves import cut_bridge, excise_loop, interchanges
 from yutsis.oracle import ClosedDiagram
-from yutsis.search import is_goal, optimal_cost, solve, successors
+from yutsis.search import is_goal, optimal_cost, solve
 
 THETA_WITH_HANDLE = Graph([(1, 2, "a"), (1, 2, "b"), (1, 3, "c"),
                            (2, 3, "d"), (3, 4, "e"),

@@ -25,9 +25,12 @@ J point ket -> bra. Every vertex has slots (left_child, right_child,
 output).
 """
 from __future__ import annotations
+
 import itertools
+
 from sympy import S, sqrt
-from .oriented import OGraph, solve_exact, evaluate_expr
+
+from .oriented import OGraph, evaluate_expr, solve_exact
 
 
 # ----------------------------------------------------------------------------
@@ -183,8 +186,9 @@ def overlap_oracle(t_ket, t_bra, jmap):
 # (-1)^(sum of 2j's) pattern depending on tree shape; pin it against the
 # state oracle on generated valid labelings, verify on held-out ones.
 # ----------------------------------------------------------------------------
-import random as _random
-from .phase import PhaseExpr as _PhaseExpr
+import random as _random  # noqa: E402 - section split
+
+from .phase import PhaseExpr as _PhaseExpr  # noqa: E402
 
 _CALIB = {}
 
@@ -260,12 +264,12 @@ def calibrate(t_ket, t_bra, probes=14, seed=5):
     for bits in itertools.product((0, 1), repeat=len(labels)):
         ok = True
         for jm, s in data:
-            e = sum(b * int(2 * jm[l]) for b, l in zip(bits, labels))
+            e = sum(b * int(2 * jm[lab]) for b, lab in zip(bits, labels))
             if (-1) ** e != s:
                 ok = False
                 break
         if ok:
-            corr = _PhaseExpr({l: 2 * b for b, l in zip(bits, labels) if b})
+            corr = _PhaseExpr({lab: 2 * b for b, lab in zip(bits, labels) if b})
             _CALIB[key] = (expr, corr)
             return _CALIB[key]
     raise AssertionError("no 2j-parity correction fits: convention gap")

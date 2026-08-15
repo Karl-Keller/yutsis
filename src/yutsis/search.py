@@ -1,11 +1,19 @@
 """A* (and greedy best-first) over the rewrite space."""
 from __future__ import annotations
+
 import heapq
 import itertools
+
 from .bounds import SUM_PENALTY, heuristic
 from .graph import Graph
-from .moves import (cut_bridge, excise_bubble, excise_loop, reduce_triangle,
-                    interchanges, targeted_interchanges)
+from .moves import (
+    cut_bridge,
+    excise_bubble,
+    excise_loop,
+    interchanges,
+    reduce_triangle,
+    targeted_interchanges,
+)
 
 __all__ = ["SUM_PENALTY", "heuristic", "is_goal", "successors", "solve",
            "optimal_cost"]

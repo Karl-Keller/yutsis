@@ -35,7 +35,8 @@ def cube():
     for u in range(8):
         for v in range(8):
             if u < v and bin(u ^ v).count("1") == 1:
-                e.append((u + 1, v + 1, f"j{i}")); i += 1
+                e.append((u + 1, v + 1, f"j{i}"))
+                i += 1
     return Graph(e)
 
 
@@ -61,12 +62,14 @@ def random_cubic(n, seed=0):
             continue
         adj = {v: set() for v in range(n)}
         for u, v in edges:
-            adj[u].add(v); adj[v].add(u)
+            adj[u].add(v)
+            adj[v].add(u)
         seen, stack = {0}, [0]
         while stack:
             for w in adj[stack.pop()]:
                 if w not in seen:
-                    seen.add(w); stack.append(w)
+                    seen.add(w)
+                    stack.append(w)
         if len(seen) == n:
             return Graph([(u, v, f"j{i}") for i, (u, v) in enumerate(edges)])
 

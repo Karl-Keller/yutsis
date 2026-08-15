@@ -1,12 +1,17 @@
 """Coupling-tree recoupling: matrix elements vs the state-level CG
 oracle, and compiled gate sequences vs direct transforms."""
 import random
+
 from sympy import S
-from yutsis.circuits import (matrix_element, overlap_oracle, calibrate,
-                             random_valid_labeling, compile_recoupling,
-                             gate_matrix)
 
 from helpers import gram, identity, matmul, max_abs_diff
+from yutsis.circuits import (
+    compile_recoupling,
+    gate_matrix,
+    matrix_element,
+    overlap_oracle,
+    random_valid_labeling,
+)
 
 T3K = (("j1", "j2"), "j3")
 T3B = ("j1", ("j2", "j3"))

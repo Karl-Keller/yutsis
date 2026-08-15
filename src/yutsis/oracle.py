@@ -4,7 +4,8 @@ A ClosedDiagram fixes every convention explicitly:
   - each edge e has a j value and an orientation (tail -> head)
   - each vertex is an ORDERED triple of edge ids (the 3j argument order)
 Value = sum over all m assignments of
-  prod_edges (-1)^(j_e - m_e)  *  prod_vertices 3j(j_a j_b j_c; s_a m_a, s_b m_b, s_c m_c)
+  prod_edges (-1)^(j_e - m_e)
+    * prod_vertices 3j(j_a j_b j_c; s_a m_a, s_b m_b, s_c m_c)
 where an edge contributes +m at its tail vertex and -m at its head vertex.
 
 This convention makes the theta graph evaluate to exactly 1 (triangle
@@ -12,9 +13,11 @@ allowed) and the standard tetrahedron orientation reproduce the Racah
 sum formula for the 6j symbol exactly, phase included.
 """
 from __future__ import annotations
+
 import itertools
 from functools import lru_cache
-from sympy import S, N
+
+from sympy import S
 from sympy.physics.wigner import wigner_3j
 
 

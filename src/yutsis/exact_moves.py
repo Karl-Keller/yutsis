@@ -112,7 +112,6 @@ def excise_bubble_exact(og: OGraph, pair):
     if len(ext_u) != 1 or len(ext_v) != 1:
         return None
     a, b = ext_u[0], ext_v[0]
-    phase = PhaseExpr()
     for p, q in ((par[0], par[1]), (par[1], par[0])):
         ph = PhaseExpr()
         okperm = True
@@ -135,10 +134,13 @@ def excise_bubble_exact(og: OGraph, pair):
                 ph.add_2j(lab)
         # a canonical: head at U; b canonical: tail at V
         if og.edges[a][1] != u:
-            ph.add_2j(a); flips.add(a)
+            ph.add_2j(a)
+            flips.add(a)
         if og.edges[b][0] != v:
-            ph.add_2j(b); flips.add(b)
-        ph.add_2j(p); ph.add_2j(q)          # the derived (-1)^(2p+2q)
+            ph.add_2j(b)
+            flips.add(b)
+        ph.add_2j(p)
+        ph.add_2j(q)          # the derived (-1)^(2p+2q)
         # residual: merged edge keeps label a, far ends post-normalization
         ta, ha = og.edges[a]
         far_a = ta if ha == u else ha       # far endpoint of a
@@ -435,7 +437,8 @@ def interchange_exact(og: OGraph, e, P_pl, Q_ql):
     ph.add_const(FLIP_PHI.get("const", 0))
     ph._norm()
     sixj = (pl, e, r, ql, x, s)             # opposite pairs (p,q),(e,x),(r,s)
-    roles = dict(roles); roles["x"] = x
+    roles = dict(roles)
+    roles["x"] = x
     return OGraph(new_edges, new_verts), ph, x, sixj, roles
 
 

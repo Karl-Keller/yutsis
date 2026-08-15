@@ -2,11 +2,12 @@
 brute-force oracle on a nonzero labeling (outer 1/2, spokes 1, inner
 (1/2,1/2,1/2,3/2,3/2)). ~1M oracle terms; run before releases."""
 import time
+
 from sympy import S
+
 import yutsis.oriented as O
 from yutsis.benchmarks import oriented_petersen
 from yutsis.oracle import ClosedDiagram
-
 
 og = oriented_petersen()
 expr = O.solve_exact(og)
