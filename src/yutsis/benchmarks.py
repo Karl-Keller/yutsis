@@ -1,6 +1,12 @@
-"""Reference graphs with known reduction structure."""
+"""Reference graphs with known reduction structure.
+
+Both structural (Graph) and oriented (OGraph) builders live here, so a
+fixture is defined once and imported by tests and scripts alike.
+"""
 import random
+
 from .graph import Graph
+from .state import OGraph
 
 
 def tetrahedron():
@@ -63,3 +69,18 @@ def random_cubic(n, seed=0):
                     seen.add(w); stack.append(w)
         if len(seen) == n:
             return Graph([(u, v, f"j{i}") for i, (u, v) in enumerate(edges)])
+
+
+def oriented_prism():
+    """The oracle's prism, with its exact orientations and slot orders."""
+    edges = {
+        "l1": ("A", "B"), "l2": ("B", "C"), "l3": ("C", "A"),
+        "k1": ("D", "E"), "k2": ("E", "F"), "k3": ("F", "D"),
+        "j1": ("A", "D"), "j2": ("B", "E"), "j3": ("C", "F"),
+    }
+    verts = {
+        "A": ("l1", "l3", "j1"), "B": ("l2", "l1", "j2"),
+        "C": ("l3", "l2", "j3"), "D": ("k3", "k1", "j1"),
+        "E": ("k1", "k2", "j2"), "F": ("k2", "k3", "j3"),
+    }
+    return OGraph(edges, verts)
