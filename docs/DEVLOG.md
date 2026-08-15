@@ -627,19 +627,59 @@ Beyond the table, two structural checks:
   and role map. 0 mismatches.
 
 **What broke, and what it taught.** The first pass at E702 split
-semicolons with a regex. Semicolons also occur in prose, so it cut
-docstrings mid-sentence across 25 files — including `theta_sign`'s
-statement of the two symmetry rules. Tests stayed green throughout,
-because tests do not read documentation.
+semicolons with a line-oriented `str.split(";")` behind three
+hand-written guards:
+
+```python
+";" in stripped
+and not stripped.lstrip().startswith("#")   # guard 1
+and '"' not in stripped                     # guard 2
+and "'" not in stripped                     # guard 3
+```
+
+Every guard leaks. Guard 1 only catches lines that BEGIN with a
+comment, so a trailing `# magnitude exact; sign is phase` passes.
+Guards 2 and 3 were meant to mean "not inside a string", but a
+triple-quoted docstring's INTERIOR lines contain no quote characters at
+all — the quotes live on the opening and closing lines — so every one
+of them passes too.
+
+The structural error: string-ness and comment-ness are properties of
+the TOKEN STREAM, not of a line. Whether a line sits inside a docstring
+depends on state carried in from earlier lines, so no line-local
+predicate can decide it. This was an attempt to approximate a parser
+with three substring tests.
+
+It cut docstrings mid-sentence across 25 files — including
+`theta_sign`'s statement of the two symmetry rules the phase engine
+rests on — and the damage came in two very different flavours:
+
+| damage | result | caught |
+|---|---|---|
+| trailing comment split | orphaned prose as a bare statement -> SyntaxError | LOUD, at once |
+| docstring split | still valid Python (a newline inside a string) | SILENT, 90 tests green |
+
+That asymmetry is the whole lesson. The comment case screamed; the
+docstring case quietly rewrote a derivation and said nothing.
 
 It was reverted wholesale rather than repaired, and redone with a
-`tokenize`-based splitter that only sees OP tokens at bracket depth
-zero, making prose unreachable by construction; then verified by
-comparing every docstring in the tree through `ast.get_docstring` —
-30 files, 0 changed, but for the one intentional line wrap. **A
-refactor needs an oracle for the prose as much as for the numbers, and
-the test suite is not it.** Committing before each risky bulk edit would
-also have made the revert a one-liner instead of a judgment call.
+`tokenize`-based splitter — a different CATEGORY of tool, not a better
+pattern — which sees `;` in prose as part of a STRING or COMMENT token
+and only ever splits `OP` tokens at bracket depth zero, making prose
+unreachable by construction. Then verified by comparing every docstring
+in the tree through `ast.get_docstring` — 30 files, 0 changed, but for
+the one intentional line wrap. **A refactor needs an oracle for the
+prose as much as for the numbers, and the test suite is not it.**
+Committing before each risky bulk edit would also have made the revert
+a one-liner instead of a judgment call.
+
+*(Correction, 2026-08-15: this entry, PR #7 and the target-5 commit
+message originally described the failed splitter as "a regex". It was
+not — it was the substring-guarded `str.split(";")` shown above. The
+mislabel mattered, because it implies the fix is a better pattern when
+the actual fix is to stop using a line-local test for a token-level
+property. The commit and PR text are immutable history; this is the
+correction of record.)*
 
 ruff found two latent bugs among the style: a discarded
 `components()` scan in `Graph.bridges`, and an assert MESSAGE in
