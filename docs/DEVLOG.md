@@ -758,3 +758,98 @@ changes no expansion counts, and Finding 5 — the heuristic recovering
 ~2% of a 99% waste, decaying with n — is untouched. The two are
 independent halves of the same wall: this one is now paid down, and the
 width-derived bound remains the open problem.
+
+## Session 16 — v0.8.4 (2026-08-15): the width bound, refuted
+
+The task was to derive and build the width-derived summation bound.
+Step 1 of the brief said DERIVE first and do not bake in an unproven
+inequality; step 4 said an honest negative result gets written up as
+one. This is that.
+
+**The conjecture, and its refutation.** The k-line anchor makes the
+inequality easy to guess: any reduction must work across a cut, a
+k-line separation costs `max(0, k-3)` summations, the minimum over
+orders of the widest cut is the carving width, so `S >= cw(G) - 3`.
+
+Exact carving width by subset DP -- validated against `cw(C4)=2`,
+`cw(K1,3)=3`, `cw(K4)=4`, `cw(theta)=3` -- refutes it on the two
+simplest benchmarks and on a random graph:
+
+| graph | cw | cw-3 | true S |
+|---|---|---|---|
+| tetrahedron | 4 | 1 | **0** |
+| prism | 4 | 1 | **0** |
+| random n=10 | 4 | 1 | **0** |
+
+The reason is worth keeping: **the rewrite calculus is strictly
+stronger than generic tensor contraction.** A triangle reduction
+collapses a tetrahedron -- an object with a 4-line cut -- in one step
+via Racah's identity, never materializing a 4-line intermediate.
+Carving width prices a cut the 6j identity gets for free, so any
+invariant that counts cuts the moves can shortcut over-charges by
+construction.
+
+Two further reasons it could not have worked. It does not SEPARATE:
+`cw = 4` for tetrahedron, prism, K3,3 and cube, whose `S` are 0, 0, 1,
+1 -- the same blindness vertex treewidth showed. And it does not SCALE:
+`cw` goes 4, 4, 4, 5 while `n` goes 8, 10, 12, 14 and `S` goes 1, 0, 1,
+3.
+
+**The deeper correction, which is the real result.** Finding 5 framed
+the problem as `h` being too small -- 20 against a true cost of 135.
+That framing was wrong. Adding `(n-2)/2`, a correct term growing
+linearly in `n`, to the shipped heuristic changes expanded-node counts
+by **zero** at every size tested (18, 12, 99, 222, 138, 983 before and
+after).
+
+A* expands every state with `f < C*`. A term that is a function of
+DEPTH shifts every frontier state equally and separates none of them --
+and `(n-2)/2` is exactly that, since `n` falls uniformly. So is any
+width invariant, which changes slowly along a reduction. **Magnitude
+was never the currency; discrimination is.**
+
+Measured over all 97 reachable states at `n = 8` with a computable
+optimum:
+
+| quantity | distinct values | violations |
+|---|---|---|
+| true `C*` | 6 | -- |
+| shipped `h` | **2** | 0 |
+| decomposition + sum | **6** | 5 |
+
+The shipped bound returns 0 for 93 states whose true costs are 0, 1, 2
+and 3 -- it cannot tell a finished diagram from one needing three more
+6j symbols. And the variation it misses is in the **6j count**, not the
+summation count: the opposite of where the roadmap had been looking
+since Finding 3.
+
+**The redirect.** The 2-cut decomposition bound already resolves
+exactly six classes -- the right number. It is not weak; it is
+inadmissible, 5 of 97 here and 8 over the wider corpus, because the
+k=1 sector's free moves drop `C*` below `(n_i - 2)/2` per piece. So the
+bound to build is that one, re-derived, and Lemma 0 generalized to all
+five moves says what it must bound:
+
+    B + L + X + T = n/2 - C - X
+    #6j = T + S   = n/2 - C - B - L - 2X + S
+
+an upper bound on `B + L + 2X`. The present version bounds `B` alone
+via 2-edge-cuts and scores self-loop and bridge pieces 0 as a
+carve-out; the principled version extends the same k-line logic DOWN to
+`k = 1`, splitting on bridges and tadpoles rather than excluding them --
+they are precisely what `L` and `X` consume.
+
+**What it taught.** A negative result arrived faster than the positive
+one would have, because the brief demanded the derivation be tested
+before being built. Three counterexamples took an afternoon; building
+an inadmissible width bound and discovering it decayed would have taken
+a week. Measure the conjecture, not just the implementation.
+
+And: when a heuristic underperforms, ask whether it is too small or too
+COARSE before making it bigger. Every roadmap entry since Finding 3
+assumed the former; the answer was the latter, and one measurement --
+adding a large correct term and watching nothing change -- settled it.
+
+**Verification.** No behavior change: this session adds
+`scripts/width_probe.py` and documentation only. 90 tests green, ruff
+clean, all oracle items untouched.

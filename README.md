@@ -146,18 +146,22 @@ analysis in [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md)):
    never enforced the 3j triad conditions (186 of 729 labelings wrong on
    an existing fixture, no k=1 move involved)
 
-5. **The heuristic does almost nothing** (new, and now the live
-   problem). Measured by `scripts/headroom.py`: A* must expand at least
-   as many nodes as the plan has moves, and at n=30 it expands **2010**
-   to find a **25**-move plan — 99% waste. Turning the heuristic off
-   entirely costs **~2%**, and that figure *decays* with n (20% at
-   n=16), so the bound is getting less useful with scale. The wall is at
-   **n≈28**. A provable girth strengthening (`S ≥ true_girth − 3`) was
-   implemented and measured: 0–3%, no better. The arithmetic says why —
-   at n=30 the cost is 135, of which summations are ~110, and any
-   *local* bound returns ≤20. **This is the case for the
-   carving/branchwidth bound, and its specification: an estimate of
-   remaining summations that scales with n.**
+5. **The heuristic is too coarse, not too small** (v0.8.4, and this
+   corrects the v0.8.1 framing). The wall is at **n≈28**; turning the
+   heuristic off costs ~2%, decaying with n. But the fix is not a
+   bigger bound: adding `(n-2)/2` — a correct term growing linearly in
+   n — changes expanded-node counts by **zero**, because a term that is
+   a function of depth shifts every frontier state equally and
+   separates none. Over all 97 states at n=8 with a computable optimum,
+   true `C*` takes **six** distinct values and the shipped bound takes
+   **two**. **Width invariants are closed off**: `S ≥ cw−3` is refuted
+   by tetrahedron, prism and a random n=10 graph — the 6j identity
+   collapses a 4-line cut for free, so cut-counting over-charges — and
+   carving width neither separates the cases nor scales. The target is
+   now the *discriminating* term: the 2-cut decomposition bound,
+   re-derived to be admissible under the k=1 move set. Evidence in
+   `scripts/width_probe.py`, derivation in
+   [docs/BOUNDS.md](docs/BOUNDS.md) Lemma 4
 
 Broader roadmap: cost-aware associahedron search and Qiskit emission in
 `yutsis.circuits`; qudit generalization; general n-line separator cuts;

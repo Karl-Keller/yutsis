@@ -255,6 +255,124 @@ the carving/branchwidth bound of Finding 3, where the degenerate cases
 must be handled properly rather than scored 0. It is not wired into
 `heuristic`.
 
+## Lemma 4 attempt — width invariants, and why they do not work
+
+The roadmap carried one headline conjecture from the start: that the
+minimum summation count is governed by a width invariant, as
+tensor-network contraction complexity is. The k-line anchor makes the
+inequality obvious to guess. Any reduction must at some point work
+across a cut of the diagram; a k-line separation costs `max(0, k-3)`
+summations; the minimum over orders of the widest such cut is the
+**carving width**. Hence
+
+    S >= cw(G) - 3.                                    (CONJECTURE)
+
+It is false, and the two simplest benchmarks refute it.
+
+### The refutation
+
+Exact carving width by subset DP (`g(S) = min over splits of
+max(g(A), g(B), cut(A), cut(B))`, O(3^n); validated against
+hand-checkable cases -- `cw(C4) = cw(C6) = 2`, `cw(K1,3) = 3`,
+`cw(K4) = 4`, `cw(theta) = 3`, and note `cw >= max degree` always,
+since a leaf edge of the carving cuts `deg(v)`):
+
+| graph | n | cw | cw - 3 | true S | |
+|---|---|---|---|---|---|
+| tetrahedron | 4 | 4 | 1 | **0** | REFUTED |
+| prism | 6 | 4 | 1 | **0** | REFUTED |
+| K3,3 | 6 | 4 | 1 | 1 | ok |
+| cube Q3 | 8 | 4 | 1 | 1 | ok |
+| Petersen | 10 | 5 | 2 | 3 | ok |
+| random n=10 | 10 | 4 | 1 | **0** | REFUTED |
+
+**Why it fails.** The rewrite calculus is strictly stronger than
+generic tensor contraction. A triangle reduction collapses a
+tetrahedron -- an object with a 4-line cut -- in ONE step, via Racah's
+identity, without ever materializing a 4-line intermediate. Carving
+width prices a cut that the 6j identity gets for free. Any width
+invariant that counts cuts the moves can shortcut will over-charge.
+
+### Two further reasons it could not have closed Finding 5
+
+**It does not separate the cases.** `cw = 4` for tetrahedron, prism,
+K3,3 AND cube, whose `S` are 0, 0, 1, 1. This is the same blindness
+vertex treewidth showed (prism and K3,3 both have treewidth 3). What
+DOES separate prism from K3,3 is girth -- the prism has triangles, K3,3
+does not -- which the existing local `sum_bound` already captures for
+free.
+
+**It does not scale.** Exact carving width against the true `S` on
+random cubic graphs:
+
+| n | 8 | 10 | 12 | 14 |
+|---|---|---|---|---|
+| cw | 4 | 4 | 4 | 5 |
+| true S | 1 | 0 | 1 | 3 |
+
+`n` nearly doubles; `cw` moves by one. Even a perfect, admissible
+width bound would fall further behind `S` as `n` grows -- which is the
+`saved`-column decay the closure criterion forbids.
+
+## What the search actually lacks: discrimination, not magnitude
+
+The premise of Finding 5 was that `h` is too SMALL -- 20 against a true
+cost of 135 at n = 30. That framing is wrong, and the measurement is
+unambiguous.
+
+**Adding a large, correct, scaling term buys exactly nothing.** Adding
+`(n-2)/2` -- the 6j count, which grows linearly in n -- to the shipped
+heuristic leaves expanded-node counts *byte-identical* at every size:
+
+| n | 14 | 18 | 20 | 22 | 24 | 26 |
+|---|---|---|---|---|---|---|
+| shipped | 18 | 12 | 99 | 222 | 138 | 983 |
+| + (n-2)/2 | 18 | 12 | 99 | 222 | 138 | 983 |
+
+A* expands every state with `f < C*`. A term that is a function of
+DEPTH -- and `(n-2)/2` is exactly that, since `n` falls uniformly --
+shifts `f` equally for every state on the frontier and separates none
+of them. The same objection applies to any width invariant, which
+changes slowly along a reduction.
+
+**What a heuristic must do is tell same-depth states apart.** Measured
+over all 97 reachable states with `n = 8` and a computable optimum:
+
+| quantity | distinct values | violations | distribution |
+|---|---|---|---|
+| true `C*` | 6 | -- | `{0:58, 1:23, 2:8, 3:1, 13:4, 14:3}` |
+| shipped `h` | **2** | 0 | `{0:93, 10:4}` |
+| decomposition + sum | **6** | 5 | `{0:73, 1:13, 2:5, 3:2, 10:2, 13:2}` |
+
+The shipped bound returns 0 for 93 states whose true costs are 0, 1, 2
+and 3: it cannot tell a finished diagram from one needing three more
+6j symbols. And the variation it misses is in the **6j count**, not the
+summation count -- the opposite of where the roadmap was looking.
+
+The 2-cut decomposition bound already resolves exactly the right number
+of classes, six. It is simply inadmissible (5 of 97 here, 8 over the
+wider corpus), because the free moves added by the k=1 sector -- loop
+excision and bridge cut -- remove two vertices at no 6j cost and drop
+`C*` below `(n_i - 2)/2` per piece.
+
+### The redirect, with its accounting
+
+The bound to build is therefore not a width bound. It is the
+DISCRIMINATING 6j term: the decomposition bound, re-derived so that it
+is admissible under the completed move set. Generalizing Lemma 0 to all
+five moves, with `B` bubbles, `L` loop excisions, `X` bridge cuts, `T`
+triangles, `S` flips, `C` starting components:
+
+    B + L + X + T = n/2 - C - X
+    #6j = T + S   = n/2 - C - B - L - 2X + S
+
+so a lower bound on the 6j count needs an upper bound on `B + L + 2X`.
+The current decomposition bounds `B` alone, via 2-edge-cuts, and scores
+self-loop and bridge pieces 0 as a carve-out. The principled version
+extends the same k-line logic DOWN to `k = 1`: bridges and tadpoles are
+1-cuts, they are exactly what `L` and `X` consume, and they should be
+split on rather than excluded.
+
 ## Petersen, certified
 
 `optimal_cost` runs uniform-cost search (`h = 0`) over the **blind**
