@@ -23,51 +23,39 @@ No formula or bound is trusted on inspection. Every rewrite rule change
 ships with an oracle test; every heuristic change ships with an
 admissibility test. CI must stay green.
 
-## Current task: treewidth-derived admissible bound (NEXT_STEPS.md, Finding 3)
+## Current task: Refactor brief — feature/refactor-oriented (behavior-preserving, v0.8.2)
 
-1. DERIVE first: state the lemma precisely in docs/BOUNDS.md — the exact
-   relationship between a width invariant (treewidth / branchwidth /
-   carving width of the anonymous cubic multigraph) and the minimum
-   number of surviving summation variables, with a proof sketch.
-   Anchor: a k-line separation costs (k-3) summations; 2- and 3-line
-   cuts are free. Do NOT bake in an unproven inequality.
-2. ADMISSIBILITY IS THE CROWN JEWEL: an over-tight h silently destroys
-   the A* optimality claim — the project's central guarantee. Since
-   exact treewidth is NP-hard, any approximation used must be a LOWER
-   bound on the invariant (a lower bound of a lower bound stays
-   admissible); an upper-bound estimator (min-fill, min-degree
-   orderings) is UNSAFE here even though the tensor-network literature
-   reaches for them first. When in doubt: h_new = max(h_old,
-   h_treewidth), and keep both implementations.
-3. MECHANIZE: new code in src/yutsis/bounds.py; search.py imports the
-   bound but stays physics-free. Small, documented functions.
-4. VERIFY (tests/test_bounds.py):
-   - Admissibility corpus: for every small graph whose true optimum C*
-     is known or computable by exhaustive blind-move A* (tetrahedron=1,
-     prism=2, K3,3=13, cube=14, plus random cubic n<=8 via blind
-     exhaustive search), assert h(root) <= C*. This corpus is to
-     heuristics what the magnetic-sum oracle is to formulas: ground
-     truth, one layer up.
-   - Dominance: assert h_new >= h_old across the corpus.
-   - The payoff: attempt to CERTIFY Petersen with blind-move A* under
-     the new bound (generous budget; mark slow or place in scripts/).
-     Whether it certifies 3 sums or finds 2, record the answer in the
-     DEVLOG — either result is a publishable fact.
-5. Housekeeping per session: append a dated entry to docs/DEVLOG.md
-   (what was built, what broke, what it taught); update NEXT_STEPS.md
-   Finding 3 status and the README "Next steps" section; bump version
-   in ALL THREE of pyproject.toml, src/yutsis/__init__.py and
-   CITATION.cff (version AND date-released) (0.7.0 on completion);
-   rerun scripts/stress.py and record expanded-node counts
-   before/after in the DEVLOG entry.
+DEFINITION (non-negotiable): refactoring changes structure, clarity, and
+performance; observable behavior is FIXED. No new moves, no bound
+changes, no new features. Any functionality change belongs in its own PR.
 
-   CITATION.cff drifted to 0.6.0 while the package moved on, so the
-   three-way version agreement is now enforced by
-   tests/test_metadata.py rather than by memory. If you bump a version
-   and CI goes red, that is the ritual working.
-6. Linting: add ruff (pyproject [tool.ruff], line-length 88) and a
-   `ruff check src tests` step to .github/workflows/ci.yml; fix what it
-   flags in touched files only.
+THE REFACTOR ORACLE — must be byte-identical before/after, and stated in
+the PR description:
+  - all 91 tests green
+  - scripts/certify_bounds.py: CERTIFIED, same violation counts (0/0)
+  - benchmark table: tetra 1, prism 2, K3,3 13, cube 14, Petersen 37
+  - scripts/stress.py: identical costs AND expansion counts
+  - scripts/verify_petersen.py: +0.004629630
+  - scripts/headroom.py: identical table
+
+TARGETS, in order:
+  1. Split oriented.py (662 lines, seven concerns) into state.py
+     (OGraph, components), exact_moves.py (the five exact moves),
+     replay.py (replay, solve_exact, evaluate_expr). Keep
+     `yutsis.oriented` as a re-export shim so no import breaks.
+  2. Rewrite the interchange_exact normalization block (the
+     want_tail / tail_should_be loop) as a single principled
+     canonicalize-endpoint helper. Same phases, same graph out; the
+     existing K3,3/9j and Petersen tests are the guard.
+  3. Consolidate builders: oriented_petersen, oriented_k33, dumbbell
+     move to benchmarks.py once; tests and scripts import them.
+     Hand-rolled matmul in tests -> a tiny tests/helpers.py.
+  4. Review test_bounds.py and test_k1_sector.py for redundancy and
+     naming; merge duplicates, keep coverage identical.
+  5. Land ruff (line-length 88) + CI step; fix only what it flags.
+
+Branch, PR, no self-merge. DEVLOG entry: what moved, what was renamed,
+and the oracle table proving nothing else changed.
 
 ## Testing conventions
 
