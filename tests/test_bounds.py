@@ -164,12 +164,13 @@ def test_girth_lower_is_a_move_availability_predicate():
 def test_girth_lower_is_not_a_girth_bound_on_self_loop_states():
     """Trap documented in docs/BOUNDS.md: a tadpole is a 1-cycle, but
     girth_lower() reports 4. Sound for Lemma 1, WRONG for any future
-    bound that wants an actual girth."""
-    assert TADPOLE_STATE.girth_lower() == 4
-    assert any(u == v for u, v, _ in TADPOLE_STATE.edges)  # true girth 1
-    for g in CORPUS:
-        if has_self_loop(g) and g.girth_lower() >= 4:
-            assert any(u == v for u, v, _ in g.edges)
+    bound that wants an actual girth.
+
+    The girth FUNCTIONS are compared against each other in
+    test_k1_sector.py; this pins the specific state Lemma 1 relies on."""
+    assert has_self_loop(TADPOLE_STATE)          # true girth is 1
+    assert TADPOLE_STATE.girth_lower() == 4      # ...yet reports 4
+    assert TADPOLE_STATE.true_girth() == 1
 
 
 def test_sum_bound_drops_the_bonus_once_loop_excision_exists():
@@ -202,7 +203,11 @@ def test_decomposition_gets_the_counterexamples_right():
     assert len(three_edge_pieces(TWO_DIAMOND_COUNTEREXAMPLE)) == 2
 
 
-def test_decomposition_is_admissible_where_measured():
+def test_decomposition_is_admissible_on_the_small_ci_corpus():
+    """Scope matters: over the WIDER corpus in scripts/certify_bounds.py
+    this bound has 8 admissibility violations as of the k=1 sector. It
+    still holds here, and pinning that keeps the boundary honest rather
+    than implying the bound is safe."""
     for g in CORPUS:
         if g.n > 8:
             continue
