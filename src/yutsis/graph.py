@@ -127,30 +127,67 @@ class Graph:
                 for comp in self.components()]
 
     def bridges(self):
-        """Labels of edges whose removal disconnects (1-line cuts).
+        """Labels of edges whose removal disconnects (1-line cuts), in
+        edge order.
 
         A bridge forces j = 0: a closed diagram is a rotational scalar,
         so a single line crossing a separation carries no angular
-        momentum (docs/K1_SECTOR.md)."""
-        from collections import deque
-        out = []
-        for i, (u, _v, lab) in enumerate(self.edges):
-            adj = {}
-            for k, (a, b, _l) in enumerate(self.edges):
-                if k == i:
+        momentum (docs/K1_SECTOR.md).
+
+        Tarjan's algorithm: one DFS, O(V + E). An edge is a bridge when
+        the subtree below it has no back edge reaching at or above its
+        parent, i.e. low[child] > disc[parent].
+
+        Three properties of THIS graph type the standard presentation
+        glosses over:
+
+        * The parent edge is skipped by EDGE INDEX, not by vertex. Skip
+          by vertex and a second, parallel edge to the parent would be
+          skipped too -- and parallel edges are exactly what makes an
+          edge not a bridge.
+        * A self-loop contributes two adjacency entries at one vertex,
+          both already visited, so it registers as a back edge to
+          itself and is never reported. Correct: a tadpole disconnects
+          nothing.
+        * The DFS restarts at every unvisited vertex, because states
+          stopped being connected when bridge cut arrived in v0.8.0.
+
+        Iterative rather than recursive so that deep diagrams cannot
+        exhaust the interpreter stack.
+        """
+        disc, low, is_bridge = {}, {}, [False] * len(self.edges)
+        timer = 0
+        for root in sorted(self.adj):
+            if root in disc:
+                continue
+            disc[root] = low[root] = timer
+            timer += 1
+            # frames: (vertex, index of the edge we entered it by, iterator)
+            stack = [(root, -1, iter(self.adj[root]))]
+            while stack:
+                u, _parent_edge, neighbours = stack[-1]
+                descended = False
+                for w, _lab, ei in neighbours:
+                    if ei == _parent_edge:
+                        continue            # the edge we came in on
+                    if w in disc:
+                        low[u] = min(low[u], disc[w])
+                    else:
+                        disc[w] = low[w] = timer
+                        timer += 1
+                        stack.append((w, ei, iter(self.adj[w])))
+                        descended = True
+                        break
+                if descended:
                     continue
-                adj.setdefault(a, []).append(b)
-                adj.setdefault(b, []).append(a)
-            seen, dq = {u}, deque([u])
-            while dq:
-                for w in adj.get(dq.popleft(), []):
-                    if w not in seen:
-                        seen.add(w)
-                        dq.append(w)
-            comp_of_u = next(c for c in self.components() if u in c)
-            if len(seen) != len(comp_of_u):
-                out.append(lab)
-        return out
+                stack.pop()
+                if stack:
+                    parent = stack[-1][0]
+                    low[parent] = min(low[parent], low[u])
+                    if low[u] > disc[parent]:
+                        is_bridge[_parent_edge] = True
+        return [lab for i, (_u, _v, lab) in enumerate(self.edges)
+                if is_bridge[i]]
 
     def cuttable_bridges(self):
         """Bridges whose endpoints are not tadpole vertices.
@@ -159,10 +196,14 @@ class Graph:
         into a bare circle with no vertices -- the empty diagram, which
         is deliberately NOT a state. That configuration is the dumbbell,
         handled as a terminal instead (see is_dumbbell)."""
+        bridge_labels = self.bridges()
+        if not bridge_labels:
+            return []                       # the common case: no scan at all
         loops = set(self.self_loops())
+        ends = {lab: (a, b) for a, b, lab in self.edges}
         out = []
-        for lab in self.bridges():
-            u, v = next((a, b) for a, b, lb in self.edges if lb == lab)
+        for lab in bridge_labels:
+            u, v = ends[lab]
             if u == v or u in loops or v in loops:
                 continue
             out.append(lab)
