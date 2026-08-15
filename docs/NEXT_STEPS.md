@@ -98,25 +98,38 @@ What remains:
 
 ## Suggested order of attack
 
-1. Edge-separator (carving/branchwidth) summation bound. Petersen no
-   longer motivates it — that is certified — so the target is now
-   scaling: sizes where blind-move A* does not collapse. Must be a
-   LOWER bound on the width invariant; upper-bound estimators
-   (min-fill, min-degree), which the tensor-network literature reaches
-   for first, are unsafe here.
+1. **Re-derive the decomposition bound so it is admissible** under the
+   completed move set. This replaced the width bound as the target in
+   v0.8.4, on measurement rather than taste: the decomposition bound
+   already resolves the right number of cost classes (six distinct
+   values at n = 8, matching true `C*`, against the shipped bound's
+   two), so it is the DISCRIMINATING term the search is missing. It is
+   simply inadmissible -- 5 of 97 states at n = 8, 8 over the wider
+   corpus -- because loop excision and bridge cut remove two vertices
+   at no 6j cost.
 
-   **Entry condition now satisfied (v0.8.0).** The k=1 sector is closed:
-   loop excision, bridge cut and the dumbbell terminal dissolve the
-   degenerate states rather than scoring around them, and
-   `Graph.true_girth()` is the one function that sees 1-cycles. So the
-   decomposition bound can be re-derived and re-certified against the
-   completed move set.
+   The accounting, generalizing Lemma 0 to all five moves (`B` bubbles,
+   `L` loops, `X` bridge cuts, `T` triangles, `S` flips, `C` starting
+   components):
 
-   Note what the sector did to that bound in passing: it went from 0
-   admissibility violations to **8**, because each new free move lowers
-   `C*` below `(n_i-2)/2` per piece. Re-derivation must start from the
-   move set as it now stands, and must be re-certified in the same
-   commit as any further free move.
+       B + L + X + T = n/2 - C - X
+       #6j = T + S   = n/2 - C - B - L - 2X + S
+
+   so the bound needs an upper bound on `B + L + 2X`. The present
+   decomposition bounds `B` alone via 2-edge-cuts and scores self-loop
+   and bridge pieces 0 as a carve-out. The principled version extends
+   the same k-line logic DOWN to k = 1: bridges and tadpoles are
+   1-cuts, they are exactly what `L` and `X` consume, and they should
+   be SPLIT ON rather than excluded.
+
+   Admissibility remains the crown jewel: `certify_bounds.py` must
+   return to 0 violations, and the payoff is measured by
+   `scripts/headroom.py` -- the `saved` column must stop decaying.
+
+2. **Width invariants are closed off** -- see Finding 5 and Lemma 4 of
+   docs/BOUNDS.md. Recorded so nobody spends a week rediscovering it.
+   If revisited, the obstacle to beat is that the 6j identity collapses
+   a 4-line cut for free, so cut-counting over-charges by construction.
 
 ## Finding 4 — the k=1 sector (CLOSED in v0.8.0)
 
@@ -186,14 +199,33 @@ summations are ~110 (`S ~ 11` at `SUM_PENALTY = 10`). Any *local*
 bound — "at least one flip", "at least girth - 3" — returns at most 20.
 A heuristic that estimates 20 out of 135 cannot prune.
 
-**This is the sharpest argument yet FOR the carving/branchwidth bound**,
-and it also says what such a bound must achieve to be worth building:
-**an estimate of the total remaining summations that scales with n.**
-Width invariants grow with the graph; girth does not. That is the whole
-difference, and it is why the edge-separator redirect matters rather
-than being a technicality.
+**Resolved in v0.8.4, and not the way this predicted.** The inference
+"therefore build a bound that scales with n" was wrong, because a
+scaling term is not what a heuristic needs. See Lemma 4 and "What the
+search actually lacks" in docs/BOUNDS.md, and `scripts/width_probe.py`
+for the evidence:
 
-Closure criterion: a bound whose `saved` column does not decay with n.
+- `S >= cw - 3` is FALSE -- refuted by tetrahedron, prism and a random
+  n=10 graph. The 6j identity collapses a 4-line cut for free, so the
+  rewrite calculus beats generic contraction and any width invariant
+  over-charges.
+- Carving width does not separate the cases (cw = 4 for tetrahedron,
+  prism, K3,3 and cube, whose S are 0, 0, 1, 1) and does not scale
+  (cw goes 4 -> 5 while n goes 8 -> 14 and S goes 1 -> 3).
+- Adding `(n-2)/2` -- a correct term growing linearly in n -- to the
+  shipped heuristic changes expanded-node counts by ZERO at every size.
+  A term that is a function of depth shifts every frontier state
+  equally and discriminates between none.
+
+What the search lacks is DISCRIMINATION. Over all 97 states at n = 8
+with a computable optimum, true `C*` takes six distinct values and the
+shipped bound takes two -- it returns 0 for 93 states whose true costs
+are 0, 1, 2 and 3. The variation it misses is in the 6j count, not the
+summation count.
+
+Closure criterion, unchanged in spirit and now correctly aimed: a bound
+whose `saved` column does not decay with n -- achieved by telling
+same-depth states apart, not by being larger.
 
 ## Standing lesson from v0.6.1
 
