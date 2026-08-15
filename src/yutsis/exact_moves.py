@@ -353,6 +353,24 @@ def dumbbell_factor(og: OGraph):
 FLIP_PHI = {"p": 1, "q": 1, "e": 1, "x": 1}
 
 
+def _canonicalize_endpoint(work, phase, lab, *, tail_at=None, head_at=None):
+    """Force edge `lab` into a canonical orientation, charging the
+    (-1)^(2j) that reversing an edge costs.
+
+    Exactly one of `tail_at` / `head_at` is given: the vertex the edge
+    must run out of, or into. `work` is mutated in place, so calls
+    APPLY IN SEQUENCE -- which matters on a multigraph, where one label
+    can occupy two roles of the same patch and the second constraint
+    must see the first one's rewrite.
+    """
+    tail, head = work[lab]
+    misoriented = ((tail_at is not None and tail != tail_at)
+                   or (head_at is not None and head != head_at))
+    if misoriented:
+        phase.add_2j(lab)
+        work[lab] = (head, tail)
+
+
 def interchange_exact(og: OGraph, e, P_pl, Q_ql):
     """Flip edge e=(u,v): neighbor P (edge p) of u swaps with neighbor Q
     (edge q) of v. Canonical input: u slots (p,e,r), v slots (e,q,s),
@@ -381,21 +399,13 @@ def interchange_exact(og: OGraph, e, P_pl, Q_ql):
             return None
     r = [lab for lab in others_u if lab != pl][0]
     s = [lab for lab in others_v if lab != ql][0]
-    # normalize orientations, materializing
-    for lab, tail_should_be, at in ((pl, None, u), (ql, v, None),
-                                    (r, u, None), (s, v, None)):
-        t, h = work[lab]
-        if lab == pl:
-            if h != u:                      # canonical p: P->u
-                ph.add_2j(lab); work[lab] = (h, t)
-        else:
-            if t != (v if lab == ql else u if lab == r else v):
-                pass
-            want_tail = v if lab == ql else (u if lab == r else v)
-            if lab == s:
-                want_tail = v
-            if work[lab][0] != want_tail:
-                ph.add_2j(lab); work[lab] = (work[lab][1], work[lab][0])
+    # Normalize orientations, materializing the flips. The canonical
+    # patch (see docstring) is p: P->u, q: v->Q, r: u->R, s: v->S, i.e.
+    # p HEADS INTO u while q, r, s TAIL OUT OF v, u, v.
+    _canonicalize_endpoint(work, ph, pl, head_at=u)
+    _canonicalize_endpoint(work, ph, ql, tail_at=v)
+    _canonicalize_endpoint(work, ph, r, tail_at=u)
+    _canonicalize_endpoint(work, ph, s, tail_at=v)
     # normalize slot orders
     for vid, want in ((u, (pl, e, r)), (v, (e, ql, s))):
         have = og.verts[vid]
