@@ -2,6 +2,7 @@
 for CI; the full exact-vs-oracle verification (a ~1M-term brute-force
 sum) lives in scripts/verify_petersen.py."""
 import time
+
 from yutsis import solve
 from yutsis.benchmarks import petersen
 

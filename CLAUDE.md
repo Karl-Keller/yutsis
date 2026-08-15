@@ -23,39 +23,85 @@ No formula or bound is trusted on inspection. Every rewrite rule change
 ships with an oracle test; every heuristic change ships with an
 admissibility test. CI must stay green.
 
-## Current task: Refactor brief — feature/refactor-oriented (behavior-preserving, v0.8.2)
+## Diff discipline (any refactor, not just the one that introduced it)
 
-DEFINITION (non-negotiable): refactoring changes structure, clarity, and
-performance; observable behavior is FIXED. No new moves, no bound
-changes, no new features. Any functionality change belongs in its own PR.
+Refactoring changes structure, clarity and performance; observable
+behavior is FIXED. A refactor diff must not change any numeric constant,
+phase coefficient, cost weight, or bound expression. If a change touches
+a number, it is not a refactor -- split it into its own PR.
 
-THE REFACTOR ORACLE — must be byte-identical before/after, and stated in
-the PR description:
-  - all 91 tests green
-  - scripts/certify_bounds.py: CERTIFIED, same violation counts (0/0)
-  - benchmark table: tetra 1, prism 2, K3,3 13, cube 14, Petersen 37
-  - scripts/stress.py: identical costs AND expansion counts
-  - scripts/verify_petersen.py: +0.004629630
-  - scripts/headroom.py: identical table
+An oracle table is necessary, not sufficient: it certifies behavior
+where measured; the diff rule certifies intent everywhere. Capture the
+oracle BEFORE the first edit, or "identical" is unfalsifiable.
 
-TARGETS, in order:
-  1. Split oriented.py (662 lines, seven concerns) into state.py
-     (OGraph, components), exact_moves.py (the five exact moves),
-     replay.py (replay, solve_exact, evaluate_expr). Keep
-     `yutsis.oriented` as a re-export shim so no import breaks.
-  2. Rewrite the interchange_exact normalization block (the
-     want_tail / tail_should_be loop) as a single principled
-     canonicalize-endpoint helper. Same phases, same graph out; the
-     existing K3,3/9j and Petersen tests are the guard.
-  3. Consolidate builders: oriented_petersen, oriented_k33, dumbbell
-     move to benchmarks.py once; tests and scripts import them.
-     Hand-rolled matmul in tests -> a tiny tests/helpers.py.
-  4. Review test_bounds.py and test_k1_sector.py for redundancy and
-     naming; merge duplicates, keep coverage identical.
-  5. Land ruff (line-length 88) + CI step; fix only what it flags.
+Prose needs an oracle too. v0.8.2 mangled docstrings across 25 files
+with a regex while every test stayed green, because tests do not read
+documentation; compare docstrings via `ast.get_docstring` after any
+bulk edit. Commit before each risky bulk edit, so revert is a one-liner.
 
-Branch, PR, no self-merge. DEVLOG entry: what moved, what was renamed,
-and the oracle table proving nothing else changed.
+## Current task: the width-derived summation bound (Finding 5 / Finding 3)
+
+Prerequisites are now met. The k=1 sector is closed (v0.8.0), so
+degenerate states are dissolved rather than scored around;
+`Graph.true_girth()` is the one function that sees 1-cycles; and
+v0.8.2 split the exact layer so `bounds.py` can grow without dragging
+662 lines of physics behind it.
+
+WHAT THE MEASUREMENT SAYS THIS MUST BE (docs/NEXT_STEPS.md, Finding 5).
+Not "tighten the bound". At n = 30 the search expands 2010 nodes for a
+25-move plan and the shipped heuristic removes ~2% of that waste, a
+figure that DECAYS with n (20% at n=16). The provable girth
+strengthening `S >= true_girth - 3` was implemented and measured at
+0-3%: no better. The arithmetic is why -- at n = 30 the cost is 135, of
+which summations are ~110, and any LOCAL bound returns at most 20.
+
+    The bound must estimate remaining summations and SCALE WITH n.
+
+CLOSURE CRITERION: a bound whose `saved` column in scripts/headroom.py
+does not decay with n. That is the test; a tighter-looking formula that
+fails it has not closed this.
+
+1. DERIVE first, in docs/BOUNDS.md, as Lemma 4. The anchor is the
+   k-line calculus already stated there: a k-line separation costs
+   max(0, k-3) summations, so 2- and 3-line cuts are free and the
+   summation count is a property of the EDGE-separator structure. For
+   cubic graphs the natural invariants are carving width and
+   branchwidth, NOT vertex treewidth -- and note the recorded
+   counterexample: prism and K3,3 both have treewidth 3 but S = 0 and
+   S = 1, so treewidth alone cannot separate them. Do NOT bake in an
+   unproven inequality.
+2. ADMISSIBILITY IS STILL THE CROWN JEWEL. Exact carving width is
+   NP-hard, so any approximation must be a LOWER bound on the
+   invariant (a lower bound of a lower bound stays admissible).
+   Upper-bound estimators -- min-fill, min-degree, and the greedy
+   orderings the tensor-network literature reaches for first -- are
+   UNSAFE here. When in doubt ship `max(h_old, h_width)` and keep both.
+3. MECHANIZE in src/yutsis/bounds.py; search.py stays physics-free.
+   Reach for `true_girth()`, never `girth_lower()` (a move-availability
+   predicate) or `girth_cycle()` (blind to self-loops).
+4. VERIFY. The admissibility corpus in tests/test_bounds.py and
+   scripts/certify_bounds.py is the ground truth; both must stay at 0
+   violations. Then run scripts/headroom.py and report the `saved`
+   column against the closure criterion -- a bound that is admissible
+   but still decays is an honest negative result and gets written up as
+   one.
+5. RE-DERIVE THE OPT-IN DECOMPOSITION BOUND while you are here. It sits
+   at 8 admissibility violations under the completed move set, because
+   each free move added in the k=1 sector lowered C* below (n_i-2)/2
+   per piece. It needs re-deriving against the move set as it now
+   stands, not repairing.
+
+THE STANDING RULE, which bit twice in the k=1 sector: any new FREE move
+must be added to `bounds.sum_bound`'s move-availability test in the
+SAME commit that adds the move, with the corpus re-run.
+
+Housekeeping per session: dated docs/DEVLOG.md entry (what was built,
+what broke, what it taught); update NEXT_STEPS.md and the README
+Findings; bump the version in ALL THREE of pyproject.toml,
+src/yutsis/__init__.py and CITATION.cff (version AND date-released) --
+tests/test_metadata.py enforces the three-way agreement, so a red CI
+after a bump is the ritual working; re-run scripts/stress.py and
+scripts/headroom.py and record the numbers.
 
 ## Testing conventions
 

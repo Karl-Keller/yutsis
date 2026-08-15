@@ -20,6 +20,7 @@ accumulating the symbolic phase along the way. The result is a theorem:
 valid for ALL j assignments, and testable against the oracle numerically.
 """
 from __future__ import annotations
+
 import itertools
 from fractions import Fraction
 

@@ -3,27 +3,11 @@ import itertools
 
 from sympy import S
 from sympy.physics.wigner import wigner_9j
+
 import yutsis.oriented as O
+from yutsis.benchmarks import oriented_dumbbell as dumbbell
+from yutsis.benchmarks import oriented_k33
 from yutsis.oracle import ClosedDiagram
-
-
-def oriented_k33():
-    edges = {}
-    verts = {"1": ("a", "b", "c"), "2": ("d", "e", "f"), "3": ("g", "h", "i"),
-             "4": ("a", "d", "g"), "5": ("b", "e", "h"), "6": ("c", "f", "i")}
-    lab = iter("abcdefghi")
-    for u in "123":
-        for v in "456":
-            edges[next(lab)] = (u, v)
-    return O.OGraph(edges, verts)
-
-
-def dumbbell():
-    edges = {"p": ("U", "V"), "q": ("U", "V"), "a": ("W", "U"),
-             "b": ("V", "Z"), "c": ("W", "Z"), "d": ("W", "Z")}
-    verts = {"U": ("p", "q", "a"), "V": ("p", "q", "b"),
-             "W": ("a", "c", "d"), "Z": ("b", "c", "d")}
-    return O.OGraph(edges, verts)
 
 
 def test_k33_fully_signed_equals_9j():

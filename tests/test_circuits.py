@@ -1,10 +1,17 @@
 """Coupling-tree recoupling: matrix elements vs the state-level CG
 oracle, and compiled gate sequences vs direct transforms."""
 import random
+
 from sympy import S
-from yutsis.circuits import (matrix_element, overlap_oracle, calibrate,
-                             random_valid_labeling, compile_recoupling,
-                             gate_matrix)
+
+from helpers import gram, identity, matmul, max_abs_diff
+from yutsis.circuits import (
+    compile_recoupling,
+    gate_matrix,
+    matrix_element,
+    overlap_oracle,
+    random_valid_labeling,
+)
 
 T3K = (("j1", "j2"), "j3")
 T3B = ("j1", ("j2", "j3"))
@@ -30,20 +37,9 @@ def test_compiled_gates_compose_to_direct_transform():
     path, gates = compile_recoupling(T1, T2, leaf_j, S(1))
     assert len(path) == 3  # two elementary flips
 
-    def matmul(A, B):
-        return [[sum(A[i][k] * B[k][j] for k in range(len(B)))
-                 for j in range(len(B[0]))] for i in range(len(A))]
-
     prod = gates[0]
     for g in gates[1:]:
         prod = matmul(g, prod)
     direct = gate_matrix(T1, T2, leaf_j, S(1))
-    err = max(abs(prod[i][j] - direct[i][j])
-              for i in range(len(prod)) for j in range(len(prod[0])))
-    assert err < 1e-12
-    n = len(direct)
-    utu = [[sum(direct[k][i] * direct[k][j] for k in range(n))
-            for j in range(n)] for i in range(n)]
-    uerr = max(abs(utu[i][j] - (1.0 if i == j else 0.0))
-               for i in range(n) for j in range(n))
-    assert uerr < 1e-12
+    assert max_abs_diff(prod, direct) < 1e-12
+    assert max_abs_diff(gram(direct), identity(len(direct))) < 1e-12

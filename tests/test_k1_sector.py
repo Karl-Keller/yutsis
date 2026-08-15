@@ -22,7 +22,7 @@ import yutsis.oriented as O
 from yutsis.graph import Graph
 from yutsis.moves import cut_bridge, excise_loop, interchanges
 from yutsis.oracle import ClosedDiagram
-from yutsis.search import is_goal, optimal_cost, solve, successors
+from yutsis.search import is_goal, optimal_cost, solve
 
 THETA_WITH_HANDLE = Graph([(1, 2, "a"), (1, 2, "b"), (1, 3, "c"),
                            (2, 3, "d"), (3, 4, "e"),
@@ -112,25 +112,20 @@ def test_flips_are_guarded_against_self_loop_legs():
 
 # --- one honest girth -------------------------------------------------
 
-def test_true_girth_sees_one_cycles():
+def test_true_girth_is_the_only_honest_girth():
+    """One statement in three parts, on one fixture: true_girth sees the
+    tadpole; girth_lower reports by bubble/triangle presence and never a
+    cycle length; girth_cycle skips loop edges outright. The latter two
+    are correct at their actual jobs and left alone deliberately --
+    reach for true_girth()."""
     g = Graph([(0, 0, "L"), (0, 1, "a"), (1, 2, "b"), (1, 3, "c"),
                (2, 3, "d"), (2, 4, "e"), (3, 5, "f"),
                (4, 5, "g"), (4, 5, "h")])
-    assert g.true_girth() == 1                       # the tadpole
+    assert g.true_girth() == 1          # the tadpole is a 1-cycle
+    assert g.girth_lower() != 1         # reports by bubble/triangle only
+    assert len(g.girth_cycle()) != 1    # skips the self-loop edge
     assert Graph([(1, 2, "x"), (1, 2, "y"),
                   (1, 2, "z")]).true_girth() == 2    # parallel pair
-
-
-def test_the_other_two_girth_functions_stay_as_they_are_by_design():
-    """girth_lower() is the move-availability predicate Lemma 1 rests on
-    and girth_cycle() skips loop edges; neither is a girth. They are left
-    alone deliberately -- true_girth() is the one to reach for."""
-    g = Graph([(0, 0, "L"), (0, 1, "a"), (1, 2, "b"), (1, 3, "c"),
-               (2, 3, "d"), (2, 4, "e"), (3, 5, "f"),
-               (4, 5, "g"), (4, 5, "h")])
-    assert g.true_girth() == 1
-    assert g.girth_lower() != 1        # reports by bubble/triangle only
-    assert len(g.girth_cycle()) != 1   # skips the self-loop edge
 
 
 # --- the dumbbell terminal -------------------------------------------

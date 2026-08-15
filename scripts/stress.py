@@ -13,13 +13,19 @@ Usage:
     python scripts/stress.py [--budget SECONDS] [--max-n N]
 """
 from __future__ import annotations
+
 import argparse
 import multiprocessing as mp
 import time
 
 from yutsis import solve
 from yutsis.benchmarks import (
-    tetrahedron, prism, k33, cube, petersen, random_cubic,
+    cube,
+    k33,
+    petersen,
+    prism,
+    random_cubic,
+    tetrahedron,
 )
 
 

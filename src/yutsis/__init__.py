@@ -3,10 +3,10 @@
 A* search over the classical Yutsis rewrite rules, with a brute-force
 magnetic-sum oracle (yutsis.oracle) as numerical ground truth.
 """
+from . import benchmarks, bounds, circuits, oracle, oriented, phase
 from .graph import Graph
-from .search import solve, heuristic, SUM_PENALTY
-from . import benchmarks, bounds, oracle, phase, oriented, circuits
+from .search import SUM_PENALTY, heuristic, solve
 
-__version__ = "0.8.1"
-__all__ = ["Graph", "solve", "heuristic", "SUM_PENALTY", "bounds",
-           "benchmarks", "oracle", "phase"]
+__version__ = "0.8.2"
+__all__ = ["Graph", "solve", "heuristic", "SUM_PENALTY",
+           "benchmarks", "bounds", "circuits", "oracle", "oriented", "phase"]

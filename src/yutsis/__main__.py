@@ -1,5 +1,5 @@
 """python -m yutsis : run the benchmark suite."""
-from .benchmarks import tetrahedron, prism, k33, cube
+from .benchmarks import cube, k33, prism, tetrahedron
 from .search import solve
 
 for name, g in [("tetrahedron (6j)", tetrahedron()),

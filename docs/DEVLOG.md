@@ -556,3 +556,92 @@ and stress unchanged (no behaviour change in this release).
 certified minimal, the k=1 sector complete, every move exact and
 oracle-verified. Performance is open, and Finding 5 says precisely what
 would move it.
+
+## Refactoring — v0.8.2 (2026-08-15): oriented.py split, ruff landed
+
+Behavior-preserving by definition and by check. No new moves, no bound
+changes, no features; the refactor oracle was captured BEFORE any edit
+so "identical" was falsifiable rather than asserted.
+
+**What moved.** `oriented.py` carried seven concerns in 662 lines:
+
+    state.py        OGraph, og_components                    61 lines
+    exact_moves.py  theta_sign + the six exact moves, FLIP_PHI
+    replay.py       replay, solve_exact, evaluate_expr
+
+`yutsis.oriented` remains as a re-export shim with `__all__`, so
+`import yutsis.oriented as O` and every existing import are unaffected.
+The oriented builders — `oriented_prism`, `oriented_k33`,
+`oriented_petersen` and the four-vertex `oriented_dumbbell` — were each
+defined inline in the one file that used them; they now sit in
+`benchmarks.py` beside the structural builders and are imported by
+tests and scripts. `tests/helpers.py` absorbs the hand-rolled matmul
+from `test_circuits.py` plus `max_abs_diff`, `gram`, `identity`.
+
+**What was renamed.** The `dumbbell()` fixture becomes
+`oriented_dumbbell`, with a docstring separating it from the k=1
+DUMBBELL TERMINAL that arrived in v0.8.0 — same word, unrelated diagram.
+`l` becomes `ltri` where it names the prism's l-triangle and `lab`/`lb`
+where it is just a label.
+`test_decomposition_is_admissible_where_measured` becomes
+`..._on_the_small_ci_corpus`, since the wider corpus shows 8 violations
+and the old name implied safety.
+
+**What was rewritten.** The orientation-normalization block in
+`interchange_exact` unpacked two loop variables it never used, contained
+an `if ...: pass` branch, and computed `want_tail` twice. Underneath it
+is four orientation constraints, exactly as the docstring already said:
+p HEADS INTO u; q, r, s TAIL OUT OF v, u, v. That is now
+`_canonicalize_endpoint`, called four times. The calls stay sequential
+and ordered, because on a multigraph one label can occupy two roles of
+the same patch and the later constraint must see the earlier rewrite.
+
+**How identity was established** — the oracle table, all six items:
+
+| item | before | after |
+|---|---|---|
+| pytest | 91 green | 90 green (see note) |
+| certify_bounds | CERTIFIED, 0/0 | CERTIFIED, 0/0 |
+| benchmarks | 1, 2, 13, 14, 37 | 1, 2, 13, 14, 37 |
+| stress | costs + expansions | identical |
+| verify_petersen | +0.004629630 | +0.004629630 |
+| headroom | full table | identical |
+
+The count note: target 4 asks for duplicate tests to be merged, which
+necessarily lowers the count, so "91 green" and target 4 cannot both
+hold literally. Two tests using the same fixture and asserting two
+halves of one statement became one; every distinct assertion survives,
+and the companion test in `test_bounds.py` gained an assertion where it
+had a vacuous one.
+
+Beyond the table, two structural checks:
+
+- **Code motion proved, not asserted.** Every top-level block was
+  extracted from `HEAD:src/yutsis/oriented.py` and from its new home via
+  `ast.get_source_segment` and compared: 15 of 15 byte-identical.
+- **The rewrite proved differentially.** The new `interchange_exact` was
+  run against the pre-split implementation over 500 random flips on
+  random oriented cubic multigraphs (n = 6, 8, 10, randomized
+  orientations and slot orders): identical output edges, vertex slots,
+  phase coefficients and constant, summation label, 6j argument tuple
+  and role map. 0 mismatches.
+
+**What broke, and what it taught.** The first pass at E702 split
+semicolons with a regex. Semicolons also occur in prose, so it cut
+docstrings mid-sentence across 25 files — including `theta_sign`'s
+statement of the two symmetry rules. Tests stayed green throughout,
+because tests do not read documentation.
+
+It was reverted wholesale rather than repaired, and redone with a
+`tokenize`-based splitter that only sees OP tokens at bracket depth
+zero, making prose unreachable by construction; then verified by
+comparing every docstring in the tree through `ast.get_docstring` —
+30 files, 0 changed, but for the one intentional line wrap. **A
+refactor needs an oracle for the prose as much as for the numbers, and
+the test suite is not it.** Committing before each risky bulk edit would
+also have made the revert a one-liner instead of a judgment call.
+
+ruff found two latent bugs among the style: a discarded
+`components()` scan in `Graph.bridges`, and an assert MESSAGE in
+`test_phase.py` referencing an orphaned name, which would have raised
+NameError instead of reporting a failure — on the failure path only.
