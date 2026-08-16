@@ -942,3 +942,84 @@ the v0.8.2 docstring bug: green everywhere, wrong on the page.
 CERTIFIED with 0 violations and 0 step violations. The shipped
 heuristic is unchanged, so all oracle items are untouched by
 construction.
+
+## Session 18 — v0.10.0 (2026-08-16): rung one, and the histogram that chose it
+
+**The diagnostic chose the family.** The posed problem had two attack
+families, and which could work depended on where the waste sits
+relative to `C*`. A* with a consistent `h` expands every state with
+`f < C*` -- mandatory, removable only by a stronger bound -- plus part
+of the `f = C*` plateau, removable by tie-breaking alone.
+`certify_bounds` reports 0 step violations, so `h` is consistent, A*
+never re-expands, and the split is exhaustive.
+
+    plateau share (f = C*): 0% at n = 16, 18, 20, 22, 24, 26, 30
+
+All of it is mandatory. No tie-breaking, no queue discipline, no
+learned ranker can remove a single node from this search -- which
+closes the "learn to order, not to bound" family for this cost model,
+the one option that carried no admissibility obligation. `Finding 1`'s
+learned-heuristic milestone does not get the easier target it was
+hoping for here.
+
+**Rung one: reducibility, not availability.** The shipped `sum_bound`
+asked whether a vertex-removing move applies RIGHT NOW. The sharper
+question is whether one ever finishes the job:
+
+    flip_free_reducible(G): can G reach a terminal using only
+                            bubble / loop / bridge / triangle moves?
+    S >= 1  iff  not flip_free_reducible(G)
+
+Admissible by definition. It terminates trivially -- every move
+considered removes two vertices, so `n` strictly decreases, depth is at
+most `n/2` and no cycle is possible -- and it memoizes by canonical
+certificate, which Lemma 3 licenses because reducibility depends only
+on topology.
+
+It SUBSUMES the old test by construction: if no move applies and `G` is
+not terminal, the child list is empty, the recursion returns False, and
+the new bound fires too. Measured over 910 corpus states it fires on
+223 against the old test's 35, with zero states where the old fires and
+`G` is in fact reducible. The gain is the case a pattern match cannot
+see: a state with a triangle available that still needs a flip later.
+
+**Payoff**, `scripts/headroom.py`, `saved` column:
+
+| n | 16 | 20 | 22 | 24 | 26 |
+|---|---|---|---|---|---|
+| v0.9.0 | 20% | 3% | 3% | 2% | 2% |
+| v0.10.0 | **36%** | **14%** | **9%** | **8%** | **7%** |
+
+Roughly triple at every size, and the decay is far gentler. Wall clock
+at n = 26: 1.31s -> 0.74s. **It still decays, so the closure criterion
+is NOT met** -- this is a constant-factor win, not an asymptotic one.
+
+**A limitation of our own leading indicator.** The discrimination
+column added last session still reads `distinct shipped h : 2`. The new
+bound is binary like the old one; it simply fires on the right states
+far more often. So distinct-value counts miss this entire class of
+improvement -- they measure resolution, not accuracy. Worth remembering
+before trusting that column to rank future candidates.
+
+**What it taught, twice, and both times about editing rather than
+mathematics.** A slice from one test's `def` to the next section
+comment silently swallowed FIVE neighbouring tests, including both
+merge-lemma tests -- Lemma 3's only coverage. The suite went 93 -> 88
+and stayed green, because deleted tests do not fail. Caught by
+diffing `grep "^def test_"` against HEAD, which is now the habit:
+**after any structural edit to a test file, diff the test inventory.**
+
+And the assert-your-replacements rule earned its keep twice in one
+session, refusing to write when ruff had reformatted an import block
+out from under a patch. Both times the failure was loud instead of
+silent, which is the entire point.
+
+**Verification.** 94 tests green, ruff clean, `certify_bounds`
+CERTIFIED with 0 violations and 0 step violations over 46,005 moves.
+Costs identical on every stress case; `verify_petersen` still
++0.004629630.
+
+**Next.** Rung two: `S >= 2` by one-step lookahead over flip children,
+admissible by construction, priced at roughly `4|E|` reducibility tests
+per node. Price it in WALL CLOCK, not node counts -- a 7% node cut that
+doubles per-node cost is a loss.

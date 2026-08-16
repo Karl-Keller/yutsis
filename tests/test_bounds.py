@@ -13,6 +13,7 @@ import pytest
 
 from yutsis import benchmarks as B
 from yutsis.bounds import (
+    flip_free_reducible,
     has_bridge,
     has_self_loop,
     heuristic,
@@ -178,25 +179,42 @@ def test_girth_lower_is_not_a_girth_bound_on_self_loop_states():
     assert TADPOLE_STATE.true_girth() == 1
 
 
-def test_sum_bound_drops_the_bonus_once_loop_excision_exists():
-    """THE COUPLING, pinned.
+def test_reducibility_catches_what_move_availability_missed():
+    """THE COUPLING, and then its successor.
 
     Before the k=1 sector this state had only flips as successors, so
-    Lemma 1 charged it SUM_PENALTY. Loop excision is a FREE
-    vertex-removing move, which falsifies that argument at exactly these
-    states -- so sum_bound must test for it. Shipping the move without
-    the bound change would have made h inadmissible here in one release.
-    """
+    Lemma 1 charged it SUM_PENALTY. Loop excision made a free move
+    available and the move-AVAILABILITY test then said no summation was
+    owed -- admissible, but wrong in fact: the state's true optimum is
+    13 = 3 sixj + one summation.
+
+    The reducibility test asks the right question. A free move applies,
+    but no sequence of free and triangle moves reaches a terminal, so a
+    flip is unavoidable and the bound fires. This is exactly the case a
+    pattern match on the current state cannot see."""
     g = TADPOLE_STATE
     assert g.check_cubic()
     assert has_self_loop(g)
-    assert not g.bubbles() and not g.triangles()
-    assert g.girth_lower() == 4       # the old test: "no bubble/triangle"
-    assert g.excisable_loops()        # ...but a free move DOES apply
-    assert sum_bound(g) == 0          # so no summation is owed
-    kinds = {desc[0] for _n, _f, _6, _s, desc in successors(g, blind=True)}
-    assert "loop" in kinds
-    assert sum_bound(g) <= optimal_cost(g)
+    assert g.excisable_loops()            # a free move DOES apply...
+    assert not flip_free_reducible(g)     # ...but it cannot finish alone
+    assert sum_bound(g) == 10
+    assert sum_bound(g) <= optimal_cost(g) == 13
+
+
+def test_reducibility_bound_never_below_the_move_availability_test():
+    """Proof, pinned: if no vertex-removing move applies and g is not
+    terminal then _flip_free_children is empty, the recursion returns
+    False, and the bound fires. So it can never be smaller than the test
+    it replaced -- and it is frequently larger."""
+    fired_old = fired_new = 0
+    for g in CORPUS:
+        old_fires = not (g.is_terminal() or g.bubbles() or g.triangles()
+                         or g.excisable_loops() or g.cuttable_bridges())
+        new_fires = sum_bound(g) > 0
+        assert not (old_fires and not new_fires), "new bound is smaller"
+        fired_old += old_fires
+        fired_new += new_fires
+    assert fired_new > fired_old
 
 
 # --- the opt-in decomposition bound, and its documented gap ----------
