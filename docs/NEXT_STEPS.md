@@ -125,15 +125,36 @@ What remains:
    If the ladder buys a constant factor and never an asymptotic one,
    that is Lemma 6 and gets written up as one.
 
-   **NEXT, and Lemma 6 is the argument for it**: an endgame pattern
-   database -- exact `C*` memoized by
-   canonical certificate for every topology to n ~ 10-12, giving exact
-   `h` once the search descends into tabulated territory.
+   **Pattern database, SHIPPED opt-in (v0.11.0)**, and the brief's cut
+   was too low. The hit-rate ceiling is set by the distribution of
+   expansions over n: a table to `n <= 12` caps at 2-3% at n = 26-30,
+   below rung one. The waste is at n = 16, 18, 20 -- the MIDDLE of the
+   reduction, not the endgame -- so the cut moved to 16, where the
+   table covers 43% of expansions at n = 26 and 30% at n = 30.
 
-   **Caution on the leading indicator**: the discrimination column
-   still reads 2 distinct values for the shipped bound after rung one,
-   because the improvement was accuracy, not resolution. Distinct-value
-   counts cannot see this class of gain.
+   47,284 entries for `n <= 16` in ~9 minutes, built level-wise
+   (Dijkstra per level: flips within, exits to the level below), every
+   sampled entry verified against uniform-cost search. Payoff, the
+   first candidate to win on BOTH metrics:
+
+       n        20     22     24     26     30
+       nodes   -64%   -74%   -45%   -37%   -27%
+       clock   -71%   -71%   -40%   -34%   -21%
+       hits     94%    54%    48%    24%    14%
+
+   Still decays with hit rate, so the closure criterion is NOT met. Not
+   wired into the default heuristic -- it is a build artifact, and the
+   engine must work without it (`yutsis.patterns`,
+   `scripts/build_patterns.py`).
+
+   **What is left.** Three sessions of candidates have improved the
+   constant and left the asymptote alone. The waste sits at n = 16-20
+   where the table cannot reach (topology counts grow 4-5x per level,
+   so n = 20 is ~10^5-10^6 entries each needing exact C*). Either the
+   table must be pushed to 18-20 -- worth pricing, since the build is
+   level-wise and embarrassingly parallel -- or the asymptotic problem
+   needs an idea that none of magnitude, width, 6j-discrimination,
+   flip-count laddering or tabulation has supplied.
 
 2. **Closed off, recorded so nobody re-derives them**: width invariants
    (Lemma 4), the k=1-extended decomposition split (Lemma 5), and

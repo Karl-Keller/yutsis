@@ -1072,3 +1072,76 @@ argument for it, and it is the current task.
 `scripts/rung2_probe.py` keeps both forms and their numbers
 reproducible. 94 tests green, ruff clean; the engine is untouched by
 construction.
+
+## Session 20 — v0.11.0 (2026-08-16): the pattern database, and a brief that was aimed too low
+
+**The cheap measurement came first, and it nearly killed the idea.** The
+brief said tabulate to `n ~ 10-12` and measure hit rate before
+believing any projection. The hit rate is capped by the distribution of
+expanded nodes over `n`, which needs no table to measure:
+
+| n | share of expansions with n <= 10 | with n <= 12 |
+|---|---|---|
+| 20 | 14% | 36% |
+| 26 | 1% | 3% |
+| 30 | 1% | 2% |
+
+A perfect table to `n <= 12` therefore has a ceiling of 2-3% at the
+sizes that matter -- below rung one's 7% -- and the ceiling itself
+decays. **The brief's cut was set too low.**
+
+The same histogram says where the waste actually is: n = 16, 18, 20 --
+the MIDDLE of the reduction, not the endgame. At n = 26, states with
+`n <= 16` are 43% of expansions; at n = 30, 30%. So the cut had to move
+to 16, and the question became whether 16 is reachable.
+
+**It is.** Distinct reachable topologies grow about 4-5x per level --
+474 for all of `n <= 12`, 1,712 at n = 14, 7,954 at n = 16 -- and the
+build is far cheaper than one search per state. Level by level: within a
+level, flips connect states at cost `1 + SUM_PENALTY`, and
+vertex-removing moves exit to the level below whose `C*` is already
+known, so each level is a Dijkstra seeded by exit costs and relaxed
+backwards along flip edges. **47,284 entries for `n <= 16` in about
+nine minutes**, every sampled entry verified against an independent
+uniform-cost search.
+
+**Payoff, and it is the first candidate to win on both metrics:**
+
+| n | nodes | wall clock | hit rate |
+|---|---|---|---|
+| 20 | -64% | **-71%** | 94% |
+| 22 | -74% | **-71%** | 54% |
+| 24 | -45% | **-40%** | 48% |
+| 26 | -37% | **-34%** | 24% |
+| 30 | -27% | **-21%** | 14% |
+
+Costs identical everywhere. This is exactly the shape Lemma 6 said to
+require: one dictionary lookup per node, no search inside the
+heuristic, so nothing is paid per node to earn the pruning. Where the
+table hits, `h` is EXACT, so `f = g + C*` and the node is expanded only
+if it genuinely lies on an optimal path.
+
+**It still decays**, tracking the hit rate (94% -> 14%), so the closure
+criterion -- a `saved` column that stops decaying -- is NOT met. Three
+sessions of candidates have now improved the constant and left the
+asymptote alone.
+
+**Not wired into the default heuristic.** The table is a build artifact
+costing minutes to generate and megabytes to store, and the engine must
+work without it. `yutsis.patterns` provides the builder, loader and a
+heuristic factory; `scripts/build_patterns.py` generates one. Default
+behaviour is unchanged, which the stress table and `certify_bounds`
+confirm.
+
+**What it taught.** The brief specified `n ~ 10-12` and the measurement
+said 16. Both numbers came from the same intuition -- "the endgame is
+where a table helps" -- and the intuition was wrong in a way only the
+expansion histogram exposes: the waste is in the middle, and "endgame
+pattern database" was a name that carried an assumption. The instruction
+to measure hit rate before believing a projection was the right
+instruction; it just needed applying to the CUT as well as to the
+payoff.
+
+**Verification.** 102 tests green (8 new), ruff clean, `certify_bounds`
+CERTIFIED and unchanged, stress costs identical, `verify_petersen`
+still +0.004629630.
