@@ -20,7 +20,7 @@ trusted on inspection.
 ## Install
 
     pip install -e ".[dev,perf]"   # perf pulls pynauty for fast canonicalization
-    pytest -q                      # 94 tests: oracles, theorems, bounds, k=1, compiler
+    pytest -q                      # 102 tests: oracles, theorems, bounds, k=1, compiler
     python -m yutsis               # benchmark reductions
 
 ## Showcase: the Petersen graph (a 15j symbol)
@@ -49,7 +49,7 @@ assignments — to 1e-9. Run it yourself:
 
     python scripts/verify_petersen.py
 
-## Verified results (v0.10.1)
+## Verified results (v0.11.0)
 
 - **The k=1 sector, half closed** (`yutsis.moves.excise_loop`,
   [docs/K1_SECTOR.md](docs/K1_SECTOR.md)): a closed diagram is a

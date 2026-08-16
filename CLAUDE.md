@@ -113,29 +113,30 @@ cuts 12-35% of nodes, and runs 10x-23x slower; the cheap sound
 restriction still runs 1.3x-6x slower. Evaluating the bound costs more
 than the search it saves -- Lemma 6, and only wall clock shows it.
 
-CURRENT TASK: the endgame pattern database. Lemma 6 is the argument for
-it -- it is the one candidate whose evaluation does NOT scale with the
-move set.
+PATTERN DATABASE: SHIPPED opt-in (v0.11.0). The brief's cut of n ~ 10-12
+was too low -- the hit-rate ceiling there is 2-3% at n = 26-30, because
+the waste sits at n = 16-20, the middle of the reduction rather than the
+endgame. At n <= 16 the table covers 43% / 30% of expansions at
+n = 26 / 30, and the payoff is the first to win on BOTH nodes and wall
+clock (-27% to -74% nodes, -21% to -71% seconds). It still decays with
+hit rate, so the closure criterion remains unmet.
 
-1. Enumerate every reachable topology up to n ~ 10-12 by canonical
-   certificate, and tabulate exact C* by uniform-cost search (h = 0,
-   blind moves). scripts/certify_bounds.py already builds most of this
-   corpus machinery; reuse it rather than writing a third BFS.
-2. h(g) = table[g.canonical()] when present -- EXACT, so admissible by
-   construction and perfectly discriminating -- else fall back to rung
-   one. One dictionary lookup per node, no search inside the heuristic.
-3. PRICE IT IN WALL CLOCK. That is the whole lesson of Lemma 6. Report
-   build time, table size, hit rate during search, and the saved column
-   from scripts/headroom.py.
-4. Watch for the tail: the table only helps once the search DESCENDS
-   below the cut, so the win may be concentrated at the end of the
-   reduction where few nodes remain. Measure hit rate before believing
-   any projection.
+CURRENT TASK: push the table to n = 18, and price it honestly.
 
-If the hit rate is high but saved still decays, that is the honest
-result and it says the waste lives ABOVE the tabulated region -- which
-would be worth knowing and would point at raising n, or at a different
-family entirely.
+1. Topology counts grow 4-5x per level: 7,954 at n = 16, 30,444+ at
+   n = 18. The level-wise build is embarrassingly parallel across
+   states within a level -- measure whether n = 18 is hours or days
+   before committing to it.
+2. The decisive number is HIT RATE at n = 26-30, not table size. From
+   the expansion histogram, n <= 18 covers roughly 65% at n = 26 and
+   80% at n = 30 -- if that holds, the saved column may finally stop
+   decaying, which is the closure criterion.
+3. If n = 18 prices out, say so and write it up. Three sessions of
+   candidates have improved the constant and left the asymptote alone;
+   a fourth honest negative is worth more than a fifth framing.
+
+Storage matters now: 47k entries is already megabytes. Do not commit
+tables to the repo -- ship the builder, document the numbers.
 
 ADMISSIBILITY REMAINS THE CROWN JEWEL. `certify_bounds` must return 0
 violations and 0 step violations; the discrimination columns are the
