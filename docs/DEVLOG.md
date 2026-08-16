@@ -1023,3 +1023,52 @@ Costs identical on every stress case; `verify_petersen` still
 admissible by construction, priced at roughly `4|E|` reducibility tests
 per node. Price it in WALL CLOCK, not node counts -- a 7% node cut that
 doubles per-node cost is a loss.
+
+## Session 19 — v0.10.1 (2026-08-16): rung two, refuted on the clock
+
+**Stated correctly first, which changed the test.** `S >= 2` is not
+"no flip-child of `g` is reducible". A one-flip reduction is
+`(free/triangle)* -> flip -> (free/triangle)* -> terminal`, so one flip
+suffices iff SOME state reachable from `g` without a flip has SOME
+flip-child that is flip-free-reducible. Quantifying over `g`'s own
+children would have been unsound -- it misses every reduction that takes
+a free move first -- and would have shipped a wrong bound that passed
+its corpus check, since the corpus would rarely exercise the gap.
+
+**Both forms built, both admissible, both lose.**
+
+| form | node cut | wall clock |
+|---|---|---|
+| correct, over FreeReach(g) | 12-35% | **10x - 23x slower** |
+| cheap, only where no free move applies | 4-19% | **1.3x - 6x slower** |
+
+0 admissibility violations for either. Costs identical everywhere.
+
+**Why.** Rung two asks `flip_free_reducible` of roughly `4|E|` flip
+children per node -- ~150 at n = 26 -- and each call runs a DFS whose
+every step computes a nauty certificate, against a search averaging
+well under a millisecond per expansion. Evaluating the bound costs more
+than the search it saves.
+
+**Lemma 6, and it generalizes past this project: an admissible bound
+can be strictly better AS A BOUND and strictly worse AS AN ALGORITHM.**
+Rung two dominates rung one on every node-count metric -- more firings,
+more pruning, identical costs -- and is unusable. Nothing in the node
+counts reveals it. Only wall clock does.
+
+This is the second time in three sessions that a metric we trusted
+turned out blind: distinct-value counts could not see rung one's gain
+(accuracy, not resolution), and node counts could not see rung two's
+loss. Both times the fix was to measure the thing actually wanted --
+`saved` and seconds -- rather than a proxy for it.
+
+**What it points at.** Any candidate whose evaluation cost scales with
+the move set is suspect. The endgame pattern database does not: exact
+`C*` tabulated by canonical certificate up to n ~ 10-12, one dictionary
+lookup per node, no search inside the heuristic. Lemma 6 is now the
+argument for it, and it is the current task.
+
+**Verification.** Nothing shipped -- the heuristic is still rung one.
+`scripts/rung2_probe.py` keeps both forms and their numbers
+reproducible. 94 tests green, ruff clean; the engine is untouched by
+construction.

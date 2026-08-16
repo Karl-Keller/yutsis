@@ -103,29 +103,39 @@ NOW:
 That is the first bound since Finding 5 that removes any waste at all.
 It still DECAYS, so it does not meet the closure criterion.
 
-THE LADDER, which is the actual task:
+THE LADDER, climbed and closed:
 
     S >= k+1  iff  no sequence of k flips reaches a flip-free-reducible
                    state
 
-1. Ship rung one (`S >= 1` by reducibility). Provable, measured, and it
-   subsumes the current girth test -- keep `max()` with the old bound
-   only if a corpus state is found where the old one is larger.
-2. Build rung two (`S >= 2`): for every flip-child G', test
-   `flip_free_reducible(G')`. Admissible by construction. Price it --
-   roughly 4|E| reducibility tests per node -- and measure whether the
-   expansion cut pays for the per-node cost in WALL CLOCK, not just in
-   node counts.
-3. Report the `saved` column against the closure criterion. If it still
-   decays, say so; a ladder that buys a constant factor and not an
-   asymptotic one is an honest result and should be written up as
-   Lemma 6.
+Rung one SHIPPED (v0.10.0). Rung two REFUTED (v0.10.1): admissible,
+cuts 12-35% of nodes, and runs 10x-23x slower; the cheap sound
+restriction still runs 1.3x-6x slower. Evaluating the bound costs more
+than the search it saves -- Lemma 6, and only wall clock shows it.
 
-ALTERNATIVE, if the ladder prices out: an endgame pattern database --
-exact `C*` memoized by canonical certificate for every topology up to
-n ~ 10-12, giving EXACT h once the search descends into tabulated
-territory. `scripts/certify_bounds.py` already builds most of the
-corpus machinery. Exact h below the cut, admissible above it.
+CURRENT TASK: the endgame pattern database. Lemma 6 is the argument for
+it -- it is the one candidate whose evaluation does NOT scale with the
+move set.
+
+1. Enumerate every reachable topology up to n ~ 10-12 by canonical
+   certificate, and tabulate exact C* by uniform-cost search (h = 0,
+   blind moves). scripts/certify_bounds.py already builds most of this
+   corpus machinery; reuse it rather than writing a third BFS.
+2. h(g) = table[g.canonical()] when present -- EXACT, so admissible by
+   construction and perfectly discriminating -- else fall back to rung
+   one. One dictionary lookup per node, no search inside the heuristic.
+3. PRICE IT IN WALL CLOCK. That is the whole lesson of Lemma 6. Report
+   build time, table size, hit rate during search, and the saved column
+   from scripts/headroom.py.
+4. Watch for the tail: the table only helps once the search DESCENDS
+   below the cut, so the win may be concentrated at the end of the
+   reduction where few nodes remain. Measure hit rate before believing
+   any projection.
+
+If the hit rate is high but saved still decays, that is the honest
+result and it says the waste lives ABOVE the tabulated region -- which
+would be worth knowing and would point at raising n, or at a different
+family entirely.
 
 ADMISSIBILITY REMAINS THE CROWN JEWEL. `certify_bounds` must return 0
 violations and 0 step violations; the discrimination columns are the
