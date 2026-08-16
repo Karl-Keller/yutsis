@@ -276,6 +276,47 @@ def test_merge_lemma_holds_under_vertex_renaming():
     assert optimal_cost(renamed) == optimal_cost(g)
 
 
+# --- Lemma 5: the gated decomposition bound --------------------------
+
+def test_gated_bound_is_admissible_on_the_corpus():
+    """It is the sharpest admissible 6j term found: 0 violations where
+    the ungated version has 8, all of which sit at states carrying both
+    a self-loop and a bridge."""
+    from yutsis.bounds import sixj_bound_gated
+    checked = 0
+    for g in CORPUS:
+        if g.n > 8:
+            continue
+        c_star = optimal_cost(g)
+        if c_star is None:
+            continue
+        checked += 1
+        assert sixj_bound_gated(g) + sum_bound(g) <= c_star
+    assert checked >= 20
+
+
+def test_gated_bound_discriminates_more_than_the_shipped_one():
+    """Lemma 4 named discrimination as the gap; this bound closes it and
+    still buys no expansions (Lemma 5), because the variation it
+    resolves is in the 6j count, below the SUM_PENALTY granularity that
+    reorders the queue."""
+    from yutsis.bounds import sixj_bound_gated
+    shipped = {heuristic(g) for g in CORPUS}
+    gated = {sixj_bound_gated(g) + sum_bound(g) for g in CORPUS}
+    assert len(gated) > len(shipped)
+
+
+def test_gated_bound_is_not_wired_into_the_heuristic():
+    """Deliberate, on the v0.6.1 reasoning: a certified-but-unproven
+    bound that cannot change a decision is not worth the risk."""
+    from yutsis.bounds import sixj_bound_gated
+    disagreeing = [g for g in CORPUS
+                   if sixj_bound_gated(g) + sum_bound(g) != heuristic(g)]
+    assert disagreeing, "gated bound should differ somewhere"
+    for g in disagreeing:
+        assert heuristic(g) == sum_bound(g)
+
+
 # --- benchmarks -------------------------------------------------------
 
 @pytest.mark.parametrize("name,fn", [

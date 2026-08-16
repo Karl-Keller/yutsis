@@ -24,7 +24,13 @@ import argparse
 from collections import deque
 
 from yutsis import benchmarks as B
-from yutsis.bounds import has_bridge, has_self_loop, heuristic
+from yutsis.bounds import (
+    has_bridge,
+    has_self_loop,
+    heuristic,
+    sixj_bound_gated,
+    sum_bound,
+)
 from yutsis.bounds import sixj_bound_decomposition as sixj_bound
 from yutsis.search import optimal_cost, successors
 
@@ -89,6 +95,7 @@ def main():
     print(f"2. Admissibility over {len(corpus)} reachable states")
     print("=" * 66)
     checked = v_old = v_new = tight = 0
+    c_stars, h_vals, g_vals = [], [], []
     for g in corpus:
         if g.n > 8:
             continue
@@ -103,8 +110,18 @@ def main():
             print(f"  *** VIOLATION h={heuristic(g)} > C*={c}: {g.edges}")
         if heuristic(g) == c:
             tight += 1
+        c_stars.append(c)
+        h_vals.append(heuristic(g))
+        g_vals.append(sixj_bound_gated(g) + sum_bound(g))
     pct = (100 * v_old / checked) if checked else 0
     print(f"  states with computable C* : {checked}")
+    # Discrimination is the leading indicator for the closure criterion:
+    # admissibility says a bound is SAFE, distinct-value counts say
+    # whether it can tell same-depth states apart at all (Lemma 4).
+    if c_stars:
+        print(f"  distinct true C*          : {len(set(c_stars))}")
+        print(f"  distinct shipped h        : {len(set(h_vals))}")
+        print(f"  distinct gated 6j + sum   : {len(set(g_vals))}")
     print(f"  v0.6.0 violations         : {v_old} ({pct:.1f}%)")
     print(f"  current violations        : {v_new}")
     print(f"  current tight             : {tight}")

@@ -853,3 +853,92 @@ adding a large correct term and watching nothing change -- settled it.
 **Verification.** No behavior change: this session adds
 `scripts/width_probe.py` and documentation only. 90 tests green, ruff
 clean, all oracle items untouched.
+
+## Session 17 — v0.9.0 (2026-08-16): the discriminating bound exists, and buys nothing
+
+The brief was NEXT_STEPS §1: re-derive the decomposition bound to be
+admissible under the completed move set, with two sharpenings -- hunt
+the creation lemma empirically first, and add a discrimination column
+to certify_bounds. Both done. The bound was found. It changes nothing,
+and understanding why closes the third framing of this problem in three
+sessions.
+
+**The creation lemma, measured first as instructed.** Worst-case
+violation of `Phi(G) <= Phi(G') + d6` by move type: +1 for triangle,
++2 for flip, bubble, bridge and loop. The shape matters: a gap on a
+move that emits NO 6j (bubble, bridge, loop) has nothing to amortize
+against. So the lemma is not the clean "<= 1 per 6j-emitting move" that
+would have given admissibility by amortization, and per the brief the
+fallback applied: ship the provable part, record the gap.
+
+**The principled fix made things worse.** Extending the decomposition
+split DOWN to k=1 -- splitting on bridges and tadpoles rather than
+carving them out, mirroring `cut_bridge` -- took violations against
+`M(G)` from 8 to **17**. The k-line logic that works at k=2 does not
+transfer: capping over-splits, because a bridge cut consumes two
+vertices AND raises the component count, which per-piece
+`(n_i - 2)/2` double-counts.
+
+En route this produced a self-inflicted false result worth recording.
+The first scratch implementation identified bridges by testing
+reachability against ALL vertices, so in a DISCONNECTED state every
+edge looked like a bridge; it emitted "cubic" pieces with 5 vertices.
+Odd vertex counts in a cubic graph are impossible, which is what gave
+it away. `Graph.bridges()` has been per-component since v0.8.0; the
+scratch code had quietly reinvented a broken version. **Reuse the
+verified primitive; a scratch reimplementation is an unverified one.**
+
+**Gating works, and is the deliverable.** All 8 ungated violations sit
+at states carrying BOTH a self-loop and a bridge. `sixj_bound_gated`
+excludes those: **0 violations** against `M(G)` (the true minimum 6j
+count over all reductions) and against `C*`, over 135 corpus states,
+with **7 distinct values** against the shipped bound's 2 -- more
+resolution than true `C*`'s 6.
+
+**And it changes nothing.** Expanded-node counts with
+`gated + sum_bound` are identical to shipped at every size: 20, 99,
+222, 138, 983, 2010 for n = 16..30.
+
+**Why -- granularity, not resolution.** True `C*` at n = 8 distributes
+`{0:58, 1:23, 2:8, 3:1, 13:4, 14:3}`: two clusters, "needs no further
+flip" (0..3) and "needs one" (13, 14), separated by
+`SUM_PENALTY = 10`. The spread WITHIN the low cluster is entirely 6j
+count, 0..3. The shipped bound's two values already separate the
+clusters -- the only axis priced at a scale that can reorder the queue.
+The decomposition bound adds resolution INSIDE a cluster, below the
+step size, and finer resolution below the step size changes no
+decision.
+
+So Lemma 4's diagnosis was right that discrimination is the currency,
+and incomplete: discrimination is necessary and NOT sufficient. It has
+to land at the granularity the cost model prices.
+
+**What this leaves, precisely posed.** The discriminating quantity must
+be a per-state lower bound on the number of FUTURE FLIPS, resolving
+`S >= 2` from `S >= 3`, at the 10-unit scale. `sum_bound` gives
+`S >= 1`; `true_girth - 3` measured 0-3%; width invariants are refuted;
+6j-count discrimination is now refuted too. No admissible per-state
+flip-count bound beyond "at least one" is known. That is the open
+problem, and for the first time it is stated in the form a solution
+must take.
+
+**Also.** `scripts/certify_bounds.py` now prints distinct-value counts
+for true `C*`, the shipped `h` and the gated bound alongside the
+violation counts -- discrimination as a leading indicator, with
+Lemma 5's warning that it is not sufficient. `docs/RELEVANCE.md` gains
+a fourth "genuinely new" bullet: Lemma 4 read forward is a positive
+claim about SU(2) structure -- symmetric tensor networks contract more
+cheaply than their width suggests, because recoupling identities
+collapse cuts generic contraction must pay for. The tensor-network
+bridge did not break; it reversed direction, and points outward now.
+
+**A process note.** Two README edits in earlier sessions silently
+no-op'd because `str.replace` matched nothing -- the version header had
+been stale at v0.8.1 for three releases. Replacements are now asserted
+before being applied. A silent no-op is the documentation equivalent of
+the v0.8.2 docstring bug: green everywhere, wrong on the page.
+
+**Verification.** 93 tests green, ruff clean, `certify_bounds`
+CERTIFIED with 0 violations and 0 step violations. The shipped
+heuristic is unchanged, so all oracle items are untouched by
+construction.

@@ -373,6 +373,100 @@ extends the same k-line logic DOWN to `k = 1`: bridges and tadpoles are
 1-cuts, they are exactly what `L` and `X` consume, and they should be
 split on rather than excluded.
 
+## Lemma 5 — the discriminating bound exists, is admissible, and still buys nothing
+
+Lemma 4 identified the gap as discrimination rather than magnitude, and
+named the fix: re-derive the decomposition bound so it is admissible
+under the completed move set. That was done. All three candidates were
+measured against `M(G)`, the minimum 6j count over ALL complete
+reductions (uniform cost on `d6` alone, so `M <= C*` and any admissible
+6j term must sit below it).
+
+| candidate | violations vs M | distinct h |
+|---|---|---|
+| shipped (6j term = 0) | 0 | **2** |
+| decomposition, ungated | **8** | 7 |
+| decomposition, gated on self-loop/bridge | **0** | **7** |
+| k=1-extended split (below) | **17** | 7 |
+
+(True `C*` takes 6 distinct values over the same 135 states.)
+
+**The principled fix made it worse.** Extending the decomposition split
+DOWN to 1-cuts -- splitting on bridges and tadpoles rather than carving
+them out, mirroring `cut_bridge` by capping each side's endpoint --
+takes the violations from 8 to **17**. The k-line logic that works at
+`k = 2` does not transfer to `k = 1`: capping over-splits, because a
+bridge cut consumes two vertices AND raises the component count, which
+the per-piece `(n_i - 2)/2` accounting double-counts.
+
+**Gating works.** All 8 ungated violations sit at states carrying BOTH
+a self-loop and a bridge. Excluding those gives `sixj_bound_gated`:
+0 violations against `M` and against `C*` over the corpus, and 7
+distinct values -- more resolution than true `C*` itself has.
+
+**And it changes nothing.** Expanded-node counts with
+`gated + sum_bound` are identical to the shipped heuristic at every
+size measured:
+
+| n | 16 | 20 | 22 | 24 | 26 | 30 |
+|---|---|---|---|---|---|---|
+| shipped | 20 | 99 | 222 | 138 | 983 | 2010 |
+| gated | 20 | 99 | 222 | 138 | 983 | 2010 |
+
+### Why: granularity, not resolution
+
+The census behind Lemma 4 said true `C*` at `n = 8` distributes as
+`{0:58, 1:23, 2:8, 3:1, 13:4, 14:3}`. The two clusters are "needs no
+further flip" (0..3) and "needs one" (13, 14). The gap BETWEEN clusters
+is `SUM_PENALTY = 10`; the spread WITHIN the low cluster is 0..3, and it
+is entirely 6j count.
+
+The shipped bound's two values, 0 and 10, already separate the clusters
+-- the only axis the cost model prices at a scale that can reorder the
+queue. The decomposition bound adds resolution *inside* a cluster,
+below the step size, and finer resolution below the step size changes
+no decision.
+
+So the sequence is now closed at three levels:
+
+1. **magnitude** does not help (Lemma 4: adding `(n-2)/2` changes
+   nothing);
+2. **width** cannot supply the bound anyway (Lemma 4: `S >= cw-3` is
+   false);
+3. **6j-count discrimination** helps neither, even when admissible and
+   finer than `C*` itself -- it resolves below the granularity that
+   matters.
+
+### What the open problem actually is, now precisely posed
+
+The discriminating quantity must be a per-state lower bound on the
+NUMBER OF FUTURE FLIPS, resolving `S >= 2` from `S >= 3` and so on, at
+the 10-unit scale. The shipped `sum_bound` gives `S >= 1` and nothing
+more; `true_girth - 3` was measured at 0-3% (Finding 5); width
+invariants are refuted (Lemma 4). No admissible per-state flip-count
+bound beyond `S >= 1` is currently known.
+
+That is the open problem, and it is now stated in the form a solution
+must take -- which it was not before this session.
+
+### The creation lemma, measured
+
+For the record, since the next attempt will need it. Worst-case
+violation of the induction step `Phi(G) <= Phi(G') + d6`, by move type,
+over the corpus:
+
+| move | emits 6j | worst gap |
+|---|---|---|
+| triangle | yes | +1 |
+| flip | yes | +2 |
+| bubble | no | +2 |
+| bridge | no | +2 |
+| loop | no | +2 |
+
+A gap on a move that emits no 6j cannot be amortized against anything,
+which is why the potential-function proof fails and why the gated bound
+is certified-by-corpus rather than proved.
+
 ## Petersen, certified
 
 `optimal_cost` runs uniform-cost search (`h = 0`) over the **blind**

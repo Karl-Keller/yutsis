@@ -163,6 +163,36 @@ def three_edge_pieces(g: Graph):
     return three_edge_pieces(split[0]) + three_edge_pieces(split[1])
 
 
+def sixj_bound_gated(g: Graph) -> int:
+    """The decomposition bound, gated to states where it is certified.
+
+    ADMISSIBLE: 0 violations over the 135 corpus states with a
+    computable optimum, measured against BOTH the true minimum 6j count
+    M(G) (uniform cost on d6 alone) and against C*. The ungated version
+    has 8, every one at a state carrying both a self-loop and a bridge,
+    which this gate excludes.
+
+    It also DISCRIMINATES, which is what Lemma 4 identified as the real
+    gap: 7 distinct values of `gated + sum_bound` over the corpus
+    against the shipped bound's 2, where true C* takes 6.
+
+    And it buys NOTHING. Expanded-node counts are identical to the
+    shipped heuristic at every size measured -- 20, 99, 222, 138, 983,
+    2010 for n = 16, 20, 22, 24, 26, 30. The reason is granularity: the
+    variation it resolves is in the 6j count, spanning 0..3, while
+    SUM_PENALTY = 10 sets the scale that reorders the queue. Finer
+    resolution below the step size changes no decision.
+
+    So it is NOT wired into `heuristic`, on the same reasoning as
+    v0.6.1: a bound that is certified-but-unproven and cannot change a
+    decision is not worth the risk. Kept because it is the sharpest
+    admissible 6j term found, and because its failure is informative --
+    see docs/BOUNDS.md, Lemma 5."""
+    if has_self_loop(g) or has_bridge(g):
+        return 0
+    return sixj_bound_decomposition(g)
+
+
 def sixj_bound_decomposition(g: Graph) -> int:
     """Lower bound on 6j count: sum of (n_i - 2)/2 over 3-edge-connected
     pieces, degenerate pieces scoring 0.
