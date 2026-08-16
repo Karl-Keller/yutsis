@@ -39,6 +39,20 @@ while every test stayed green, because tests do not read documentation.
 Compare docstrings via `ast.get_docstring` after any bulk edit, and
 commit before each risky one so revert is a one-liner.
 
+Reuse the verified primitive. A scratch reimplementation is an
+unverified one, and it will be wrong in the case the real one was fixed
+for. v0.9.0 lost an hour to a scratch bridge finder that tested
+reachability against ALL vertices, so in a DISCONNECTED state every edge
+looked like a bridge; it produced "cubic" pieces with an odd number of
+vertices, which is impossible, and briefly refuted a correct design.
+`Graph.bridges()` had been per-component since v0.8.0.
+
+Assert your replacements. `str.replace` that matches nothing fails
+silently: two README edits no-op'd and left the version header stale at
+v0.8.1 for three releases. Assert the old text is present before
+writing. This is the prose twin of the iron rule -- green everywhere,
+wrong on the page.
+
 For bulk edits, use a tool of the right CATEGORY. String-ness and
 comment-ness are properties of the token stream, not of a line, so no
 line-local test can decide whether it is inside a docstring -- reach
@@ -50,69 +64,79 @@ Splitting inside a comment raises SyntaxError and is caught at once;
 splitting inside a docstring is still valid Python and is caught by
 nothing.
 
-## Current task: the width-derived summation bound (Finding 5 / Finding 3)
+## Current task: the flip-count bound (Finding 5, and the last family standing)
 
-Prerequisites are now met. The k=1 sector is closed (v0.8.0), so
-degenerate states are dissolved rather than scored around;
-`Graph.true_girth()` is the one function that sees 1-cycles; and
-v0.8.2 split the exact layer so `bounds.py` can grow without dragging
-662 lines of physics behind it.
+THE DIAGNOSTIC IS DONE, and it eliminated one of the two attack
+families outright. Over n = 16..30, every expanded node has `f < C*`:
 
-WHAT THE MEASUREMENT SAYS THIS MUST BE (docs/NEXT_STEPS.md, Finding 5).
-Not "tighten the bound". At n = 30 the search expands 2010 nodes for a
-25-move plan and the shipped heuristic removes ~2% of that waste, a
-figure that DECAYS with n (20% at n=16). The provable girth
-strengthening `S >= true_girth - 3` was implemented and measured at
-0-3%: no better. The arithmetic is why -- at n = 30 the cost is 135, of
-which summations are ~110, and any LOCAL bound returns at most 20.
+    plateau share (f = C*): 0% at every size
 
-    The bound must estimate remaining summations and SCALE WITH n.
+`h` is CONSISTENT -- `certify_bounds` reports 0 step violations -- so
+A* never re-expands and the split is exhaustive. The waste is therefore
+100% MANDATORY given `h`. No tie-breaking, no queue discipline and no
+learned ranker can remove a single node from this search. Only a
+stronger admissible bound can.
 
-CLOSURE CRITERION: a bound whose `saved` column in scripts/headroom.py
-does not decay with n. That is the test; a tighter-looking formula that
-fails it has not closed this.
+(That also closes the "learn to order, not to bound" idea for this cost
+model. It was the attractive option -- no admissibility obligation --
+and it is worth nothing here. Do not revisit without re-running the
+histogram, `scripts/plateau_probe.py`.)
 
-1. DERIVE first, in docs/BOUNDS.md, as Lemma 4. The anchor is the
-   k-line calculus already stated there: a k-line separation costs
-   max(0, k-3) summations, so 2- and 3-line cuts are free and the
-   summation count is a property of the EDGE-separator structure. For
-   cubic graphs the natural invariants are carving width and
-   branchwidth, NOT vertex treewidth -- and note the recorded
-   counterexample: prism and K3,3 both have treewidth 3 but S = 0 and
-   S = 1, so treewidth alone cannot separate them. Do NOT bake in an
-   unproven inequality.
-2. ADMISSIBILITY IS STILL THE CROWN JEWEL. Exact carving width is
-   NP-hard, so any approximation must be a LOWER bound on the
-   invariant (a lower bound of a lower bound stays admissible).
-   Upper-bound estimators -- min-fill, min-degree, and the greedy
-   orderings the tensor-network literature reaches for first -- are
-   UNSAFE here. When in doubt ship `max(h_old, h_width)` and keep both.
-3. MECHANIZE in src/yutsis/bounds.py; search.py stays physics-free.
-   Reach for `true_girth()`, never `girth_lower()` (a move-availability
-   predicate) or `girth_cycle()` (blind to self-loops).
-4. VERIFY. The admissibility corpus in tests/test_bounds.py and
-   scripts/certify_bounds.py is the ground truth; both must stay at 0
-   violations. Then run scripts/headroom.py and report the `saved`
-   column against the closure criterion -- a bound that is admissible
-   but still decays is an honest negative result and gets written up as
-   one.
-5. RE-DERIVE THE OPT-IN DECOMPOSITION BOUND while you are here. It sits
-   at 8 admissibility violations under the completed move set, because
-   each free move added in the k=1 sector lowered C* below (n_i-2)/2
-   per piece. It needs re-deriving against the move set as it now
-   stands, not repairing.
+WHAT SURVIVES, and it has a measured first rung. The sharper test for
+`S >= 1` is not move-availability but REDUCIBILITY:
 
-THE STANDING RULE, which bit twice in the k=1 sector: any new FREE move
-must be added to `bounds.sum_bound`'s move-availability test in the
-SAME commit that adds the move, with the corpus re-run.
+    flip_free_reducible(G): can G reach a terminal using only
+                            bubble / loop / bridge / triangle moves?
+    S >= 1  iff  not flip_free_reducible(G)
 
-Housekeeping per session: dated docs/DEVLOG.md entry (what was built,
-what broke, what it taught); update NEXT_STEPS.md and the README
-Findings; bump the version in ALL THREE of pyproject.toml,
-src/yutsis/__init__.py and CITATION.cff (version AND date-released) --
-tests/test_metadata.py enforces the three-way agreement, so a red CI
-after a bump is the ritual working; re-run scripts/stress.py and
-scripts/headroom.py and record the numbers.
+Trivially admissible -- if no flip-free path to a terminal exists, every
+reduction uses a flip -- and a small search, since each such move drops
+n by 2 and there are no flips to branch on. Measured against the
+shipped `sum_bound`, which only asks whether a free move applies RIGHT
+NOW:
+
+    fires on 223 of 910 corpus states, against sum_bound's 35
+    a strict superset (0 states where sum_bound fires and G is reducible)
+    expansions cut 20% / 11% / 7% / 6% / 5% / 4% at n = 16..30, costs
+    unchanged
+
+That is the first bound since Finding 5 that removes any waste at all.
+It still DECAYS, so it does not meet the closure criterion.
+
+THE LADDER, which is the actual task:
+
+    S >= k+1  iff  no sequence of k flips reaches a flip-free-reducible
+                   state
+
+1. Ship rung one (`S >= 1` by reducibility). Provable, measured, and it
+   subsumes the current girth test -- keep `max()` with the old bound
+   only if a corpus state is found where the old one is larger.
+2. Build rung two (`S >= 2`): for every flip-child G', test
+   `flip_free_reducible(G')`. Admissible by construction. Price it --
+   roughly 4|E| reducibility tests per node -- and measure whether the
+   expansion cut pays for the per-node cost in WALL CLOCK, not just in
+   node counts.
+3. Report the `saved` column against the closure criterion. If it still
+   decays, say so; a ladder that buys a constant factor and not an
+   asymptotic one is an honest result and should be written up as
+   Lemma 6.
+
+ALTERNATIVE, if the ladder prices out: an endgame pattern database --
+exact `C*` memoized by canonical certificate for every topology up to
+n ~ 10-12, giving EXACT h once the search descends into tabulated
+territory. `scripts/certify_bounds.py` already builds most of the
+corpus machinery. Exact h below the cut, admissible above it.
+
+ADMISSIBILITY REMAINS THE CROWN JEWEL. `certify_bounds` must return 0
+violations and 0 step violations; the discrimination columns are the
+leading indicator, with Lemma 5's warning that discrimination must land
+at the SUM_PENALTY granularity to change any decision.
+
+Housekeeping per session: dated docs/DEVLOG.md entry; update
+NEXT_STEPS.md and the README Findings; bump the version in ALL THREE of
+pyproject.toml, src/yutsis/__init__.py and CITATION.cff (version AND
+date-released); re-run scripts/stress.py, scripts/headroom.py and
+scripts/certify_bounds.py and record the numbers.
 
 ## Testing conventions
 
