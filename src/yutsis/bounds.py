@@ -37,6 +37,7 @@ import itertools
 from collections import deque
 
 from .graph import Graph
+from .moves import cut_bridge, excise_bubble, excise_loop, reduce_triangle
 
 SUM_PENALTY = 10  # one surviving summation ~ ten 6j lookups at evaluation
 
@@ -45,31 +46,76 @@ SUM_PENALTY = 10  # one surviving summation ~ ten 6j lookups at evaluation
 # The proven bound (default)
 # ---------------------------------------------------------------------
 
+# Reducibility is a property of the anonymous topology (Lemma 3, the
+# merge lemma), so results are cached by canonical certificate and reused
+# across the whole search.
+_REDUCIBLE_CACHE: dict = {}
+_CACHE_LIMIT = 200_000
+
+
+def _flip_free_children(g: Graph):
+    """Children reachable WITHOUT emitting a summation: every
+    vertex-removing move, i.e. everything except the interchange."""
+    out = [excise_bubble(g, pair) for pair in g.bubbles()]
+    out += [excise_loop(g, v) for v in g.excisable_loops()]
+    out += [cut_bridge(g, lab) for lab in g.cuttable_bridges()]
+    out += [reduce_triangle(g, tri) for tri in g.triangles()]
+    return [c[0] for c in out if c is not None]
+
+
+def flip_free_reducible(g: Graph) -> bool:
+    """Can `g` reach a terminal using no interchange at all?
+
+    Every move considered here removes two vertices, so `n` strictly
+    decreases: the recursion terminates at depth <= n/2 and no cycle is
+    possible. Memoized by canonical certificate, which is sound because
+    reducibility depends only on the topology (Lemma 3, the merge
+    lemma).
+    """
+    cert = g.canonical()
+    cached = _REDUCIBLE_CACHE.get(cert)
+    if cached is not None:
+        return cached
+    if g.is_terminal():
+        result = True
+    else:
+        result = any(flip_free_reducible(c) for c in _flip_free_children(g))
+    if len(_REDUCIBLE_CACHE) < _CACHE_LIMIT:
+        _REDUCIBLE_CACHE[cert] = result
+    return result
+
+
 def sum_bound(g: Graph) -> int:
     """Lower bound on summation cost. PROVEN.
 
-    If the state is not the goal and NO vertex-removing move applies,
-    every move out of it is an interchange, so at least one surviving
-    summation is unavoidable.
+    If `g` cannot reach a terminal without an interchange then every
+    complete reduction of `g` uses at least one, so at least one
+    summation survives. That is the definition of
+    `flip_free_reducible`, so admissibility is immediate.
 
-    The move-availability test must name every free move. When loop
-    excision joined the move set (the k=1 sector) the previous test --
-    bubble or triangle only -- became false: a tadpole state has a free
-    vertex-removing move and does NOT owe a summation. Shipping the new
-    move without this line would have made h inadmissible at exactly the
-    states the move was added to handle, repeating the v0.6.0 mistake in
-    a single release. Any future free move must be added here in the
-    same commit.
+    THIS SUBSUMES THE PREVIOUS TEST, which asked only whether a
+    vertex-removing move applies RIGHT NOW. If none does and `g` is not
+    terminal then `_flip_free_children` is empty, the recursion returns
+    False, and this bound fires too -- it is never smaller. It is
+    frequently larger: over 910 corpus states it fires on 223 against
+    the old test's 35, with no state where the old fires and `g` is in
+    fact reducible.
 
-    Weak: it returns SUM_PENALTY whether the true answer is one flip or
-    five, so it bounds Petersen at S >= 1 against a certified S = 3.
-    Tightening it via edge-separator width is Finding 3."""
+    Being a reachability question rather than a pattern match, it also
+    catches what the old test structurally could not -- a state with a
+    triangle available that still needs a flip later on.
+
+    Weak in the other direction, and that is the open problem: it
+    resolves `S >= 1` and nothing beyond. Rung two of the ladder,
+    `S >= 2` by one-step lookahead over flip children, is the current
+    task in CLAUDE.md.
+
+    Any future free move must be added to `_flip_free_children` in the
+    same commit that adds the move -- the standing rule that bit twice
+    in the k=1 sector."""
     if g.is_terminal():
         return 0
-    if (g.bubbles() or g.triangles() or g.excisable_loops()
-            or g.cuttable_bridges()):
-        return 0
-    return SUM_PENALTY
+    return 0 if flip_free_reducible(g) else SUM_PENALTY
 
 
 def heuristic(g: Graph) -> int:

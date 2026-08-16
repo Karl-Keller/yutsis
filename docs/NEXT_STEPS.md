@@ -98,32 +98,37 @@ What remains:
 
 ## Suggested order of attack
 
-1. **Find a per-state lower bound on the FUTURE FLIP COUNT.** This is
-   what remains after v0.9.0 closed the previous three framings, and it
-   is stated in the form a solution must take.
+1. **Climb the flip-count ladder.** Rung one shipped in v0.10.0.
 
-   The cost model prices a flip at `SUM_PENALTY = 10` and a 6j at 1, so
-   only a bound that resolves `S >= 2` from `S >= 3` from `S >= 4` can
-   reorder A*'s queue. `sum_bound` gives `S >= 1` and nothing more.
-   Everything else tried is closed:
+   The diagnostic that chose this family: over n = 16..30 the plateau
+   share (`f = C*`) is **0%** -- all search waste is mandatory given
+   `h`, so no tie-breaking or learned ordering can remove a node, and
+   only a stronger admissible bound can (`scripts/plateau_probe.py`).
 
-   - *magnitude*: adding `(n-2)/2`, correct and growing linearly in n,
-     changes expanded-node counts by ZERO (Lemma 4);
-   - *width*: `S >= cw - 3` is refuted on tetrahedron, prism and a
-     random n=10 graph (Lemma 4);
-   - *6j discrimination*: the gated decomposition bound is admissible
-     (0 violations where the ungated has 8) and resolves 7 classes to
-     true `C*`'s 6 -- and changes no expansions, because it resolves
-     BELOW the SUM_PENALTY granularity (Lemma 5);
-   - *the k=1-extended split*, the "principled" fix, makes admissibility
-     strictly worse: 17 violations against 8 (Lemma 5).
+   **Rung one, shipped**: `S >= 1` iff not `flip_free_reducible(G)`,
+   i.e. G cannot reach a terminal using only free and triangle moves.
+   Admissible by definition, subsumes the old move-availability test by
+   construction, fires on 223 of 910 corpus states against 35. `saved`
+   went 20/3/3/2/2% to 36/14/9/8/7% at n = 16..26 -- roughly triple,
+   and still decaying, so the criterion is NOT met.
 
-   Closure criterion unchanged: a `saved` column in
-   `scripts/headroom.py` that stops decaying with n. The leading
-   indicator is now printed by `scripts/certify_bounds.py` -- distinct
-   values of the candidate against distinct true `C*` -- but note
-   Lemma 5's warning that discrimination is necessary and NOT
-   sufficient; it must land at the right granularity.
+   **Rung two, next**: `S >= 2` iff no flip-child is
+   flip-free-reducible. Admissible by construction. Costs about `4|E|`
+   reducibility tests per node, so PRICE IT IN WALL CLOCK -- a node cut
+   that doubles per-node cost is a loss. Generalizes to
+   `S >= k+1` iff no k-flip sequence reaches a reducible state.
+
+   If the ladder buys a constant factor and never an asymptotic one,
+   that is Lemma 6 and gets written up as one.
+
+   **Fallback**: an endgame pattern database -- exact `C*` memoized by
+   canonical certificate for every topology to n ~ 10-12, giving exact
+   `h` once the search descends into tabulated territory.
+
+   **Caution on the leading indicator**: the discrimination column
+   still reads 2 distinct values for the shipped bound after rung one,
+   because the improvement was accuracy, not resolution. Distinct-value
+   counts cannot see this class of gain.
 
 2. **Closed off, recorded so nobody re-derives them**: width invariants
    (Lemma 4), the k=1-extended decomposition split (Lemma 5), and
