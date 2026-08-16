@@ -56,28 +56,49 @@ optimum (72.5%). See "The counterexamples".
 
 **Lemma 1 (summation bound). PROVEN.**
 
-    h_sum(G) = SUM_PENALTY  if n > 2 and girth_lower(G) >= 4, else 0.
+    h_sum(G) = 0                if G is terminal
+             = 0                if G is flip-free reducible
+             = SUM_PENALTY      otherwise
 
-*Proof.* If `G` is not the goal and **no vertex-removing move applies**,
-then every move out of `G` is an interchange. A complete reduction must
-make at least one move, that move is a flip, and a flip emits one
-summation. Hence `S >= 1` and `cost >= SUM_PENALTY`. If no move applies
-at all, `G` is a dead end, `C*` is infinite, and any `h` is admissible.
-∎
+where `flip_free_reducible(G)` asks whether `G` can reach a terminal
+using only the vertex-removing moves -- bubble excision, loop excision,
+bridge cut, triangle contraction -- and no interchange at all.
 
-**The hypothesis must name every free move.** The move set is
-`{bubble excision, loop excision, triangle contraction, interchange}`,
-so the test is `bubbles()` **and** `excisable_loops()` **and**
-`triangles()` all empty. The k=1 sector added loop excision, and until
-`sum_bound` was taught about it the lemma's hypothesis was false at
-exactly the tadpole states — charging a summation to a state with a free
-vertex-removing move. Adding a free move without updating this test
-makes `h` inadmissible in a single release; the two must land in the
-same commit. See docs/K1_SECTOR.md, "The coupling".
+*Proof.* If no flip-free path to a terminal exists, then every complete
+reduction of `G` uses at least one interchange, and every interchange
+emits one surviving summation. Hence `S >= 1` and
+`cost >= SUM_PENALTY`. If `G` is a dead end, `C*` is infinite and any
+`h` is admissible. ∎
 
-Note what the proof does **not** use: the girth of `G`. Despite its
-name, `girth_lower()` computes no cycle length — it is a
-move-availability predicate, and the bound rests only on that.
+The recursion terminates trivially: every move it considers removes two
+vertices, so `n` strictly decreases, depth is at most `n/2`, and no
+cycle is possible. It memoizes by canonical certificate, which Lemma 3
+licenses because reducibility depends only on the topology.
+
+**History, because the shape of the test changed twice.** Through
+v0.9.0 this lemma tested move AVAILABILITY -- whether a vertex-removing
+move applies right now -- and its hypothesis had to name every free
+move explicitly. That coupling bit twice: the k=1 sector added loop
+excision and then bridge cut, and each time `sum_bound` had to be
+taught about the new move in the same commit, or `h` became
+inadmissible at exactly the states the move was added to handle.
+
+v0.10.0 replaced availability with REDUCIBILITY, which subsumes it by
+construction: if no move applies and `G` is not terminal, the child
+list is empty, the recursion returns False, and the bound fires anyway.
+So it is never smaller, and it is frequently larger -- over 910 corpus
+states it fires on 223 against the old test's 35. The gain is precisely
+the case a pattern match on the current state cannot see: **a state with
+a triangle available that still needs a flip later.**
+
+The standing rule survives the change in a weaker form: any future free
+move must be added to `_flip_free_children` in the same commit that adds
+the move.
+
+(There is no Lemma 2. An earlier draft split the summation bound in two
+and the halves were merged here; the numbering is left alone so that
+references in the DEVLOG and commit history keep pointing at the
+statements they were written against.)
 
 ### Degenerate states, and how the k=1 sector changed them
 
@@ -107,9 +128,11 @@ dominates, and on every benchmark plus random cubic graphs out to
 identical expanded-node counts**. A term that cannot change a single
 search decision does not justify an unproven admissibility claim.
 
-`h_sum` is weak — it returns `SUM_PENALTY` whether the true answer is
-one flip or five, so it bounds Petersen at `S >= 1` against a certified
-`S = 3`. Strengthening it is Finding 3.
+`h_sum` is weak in one specific way: it resolves `S >= 1` and nothing
+beyond, returning `SUM_PENALTY` whether the true answer is one flip or
+five, so it bounds Petersen at `S >= 1` against a certified `S = 3`.
+Five families have been tried against that gap (Lemmas 4-7); two help,
+both by a constant factor.
 
 ## Lemma 3 (the merge lemma)
 
@@ -516,6 +539,80 @@ the argument for it.
 
 Not shipped. `scripts/rung2_probe.py` keeps both forms and their
 numbers reproducible. The shipped heuristic remains rung one.
+
+## Lemma 7 — tabulation wins on both metrics, and still decays
+
+Lemma 6 rules out any heuristic whose evaluation cost scales with the
+move set. A table is the shape that survives: one dictionary lookup per
+node, no search inside the bound, and entries that are EXACT, so
+admissibility is by construction rather than by inequality.
+
+### The cut, which the brief got wrong
+
+Hit rate is capped by the distribution of expanded nodes over `n`, and
+that needs no table to measure:
+
+| n | expansions with n <= 10 | with n <= 12 | with n <= 16 |
+|---|---|---|---|
+| 20 | 14% | 36% | 92% |
+| 26 | 1% | 3% | 43% |
+| 30 | 1% | 2% | 30% |
+
+A perfect table to `n <= 12` therefore caps at 2-3% at the sizes that
+matter -- BELOW rung one. The same histogram says why: the waste sits
+at **n = 16, 18, 20, the middle of the reduction, not the endgame**.
+"Endgame pattern database" was a name carrying an assumption, and the
+assumption was wrong.
+
+### The build
+
+Reachable topologies grow about 4-5x per level: 474 for all of
+`n <= 12`, 1,712 at n = 14, 7,954 at n = 16. Building level by level is
+far cheaper than one uniform-cost search per state. Within a level,
+flips connect states at cost `1 + SUM_PENALTY`; vertex-removing moves
+exit to the level below, whose `C*` is already known. Each level is
+therefore a Dijkstra seeded by exit costs and relaxed backwards along
+flip edges.
+
+**47,284 entries for `n <= 16` in about nine minutes**, every sampled
+entry verified against an independent uniform-cost search
+(`tests/test_patterns.py` checks this property, since admissibility
+here rests on exactness: an entry below the true optimum would void the
+A* guarantee, one above would silently change results).
+
+### The payoff
+
+| n | nodes | wall clock | hit rate |
+|---|---|---|---|
+| 20 | -64% | **-71%** | 94% |
+| 22 | -74% | **-71%** | 54% |
+| 24 | -45% | **-40%** | 48% |
+| 26 | -37% | **-34%** | 24% |
+| 30 | -27% | **-21%** | 14% |
+
+Costs identical everywhere. The first candidate since Finding 5 to win
+on BOTH metrics -- because where the table hits, `h` is exact, so
+`f = g + C*` and the node is expanded only if it genuinely lies on an
+optimal path, at no per-node price.
+
+**It still decays**, tracking the hit rate from 94% down to 14%. The
+closure criterion -- a `saved` column that stops decaying -- is not met.
+
+### The scoreboard after five families
+
+| family | admissible | nodes | wall clock | verdict |
+|---|---|---|---|---|
+| magnitude, `(n-2)/2` | yes | none | none | Lemma 4 |
+| width, `cw - 3` | **no** | -- | -- | Lemma 4, refuted |
+| 6j discrimination, gated | yes | none | none | Lemma 5 |
+| flip ladder, rung 1 | yes | better | better | SHIPPED v0.10.0 |
+| flip ladder, rung 2 | yes | better | **much worse** | Lemma 6 |
+| tabulation, n <= 16 | yes | better | better | opt-in v0.11.0 |
+
+Two of the six improve the search. Both improve the constant. Neither
+touches the asymptote, and the reason is the same in both cases: the
+benefit is concentrated where the bound is informative, and the
+fraction of the search that lies there shrinks as `n` grows.
 
 ## Petersen, certified
 

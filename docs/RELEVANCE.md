@@ -77,13 +77,19 @@ The 1983 aspiration — search finds cheap recoupling formulas — proved
 and exact phases dispatched every benchmark, and each "wall" dissolved
 into a stale premise once re-measured. What proved *harder* is what no
 one could have measured in 1983: at n ~ 30, admissible bounds collect
-about 2% of the search waste and *decay* with scale (Finding 5), because
-summation counts are governed by width invariants and no local
-structure predicts them. That is not an implementation shortfall; it is
-the discovery that recoupling optimization shares the hardness profile
-of tensor-network contraction ordering — with the physics-specific
-structure (free 2- and 3-line cuts) as the lever that may carry it
-further than the generic case. The novelty migrated from where it was
+about 2% of the search waste and *decay* with scale (Finding 5). Five
+families have since been tried against that gap (docs/BOUNDS.md,
+Lemmas 4-7) and the cause is now pinned, having survived four wrong
+framings: it is NOT that summation counts are governed by width
+invariants — that conjecture is refuted, and its refutation is bullet 4
+above. It is that the discriminating quantity must be a per-state lower
+bound on the number of future flips, at the granularity the cost model
+prices. Two of the five families help — reducibility-based `S >= 1`,
+and an exact pattern database for small topologies — and both improve
+the constant while leaving the asymptote untouched, because each one's
+benefit is concentrated where the bound is informative and that region
+shrinks as n grows. That is not an implementation shortfall; it is a
+precisely posed open problem with a documented graveyard around it. The novelty migrated from where it was
 expected to where it actually was, and the DEVLOG records the
 migration.
 
@@ -92,9 +98,10 @@ migration.
 - **Groundbreaking?** No, and outreach must never say so; the reviewer
   who knows GYutsis will dismiss everything else if it does.
 - **A strong contribution?** Yes — at SciPost Physics Codebases / JOSS
-  level as it stands; at CPC / JCP level once the width-derived bound
-  lands with a scaling result, or the compiler with a worked qudit
-  example.
+  level as it stands; at CPC / JCP level once a bound lands with a
+  SCALING result -- not the width-derived one, which is refuted, but
+  whatever supplies the per-state flip-count estimate Lemmas 4-7 leave
+  open -- or the compiler with a worked qudit example.
 - **A research platform?** Unusually good: anyone can build learned
   heuristics on a certified, oracle-verified engine without inheriting
   sign anxiety.
