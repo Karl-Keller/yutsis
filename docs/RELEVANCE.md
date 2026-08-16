@@ -52,6 +52,24 @@ this document says them first.
    2006 to a live field, and the principal reason the project is not a
    reinvented wheel.
 
+4. **The tensor-network bridge, reversed.** The project expected to
+   BORROW from tensor-network theory: contraction complexity is
+   governed by width invariants, so the summation count should be too.
+   Measurement refuted it (docs/BOUNDS.md, Lemma 4). `S >= cw(G) - 3`
+   fails on the two simplest benchmarks, because a triangle reduction
+   collapses a tetrahedron -- an object with a 4-line cut -- in one step
+   via Racah's identity, never materializing the 4-line intermediate.
+
+   Read forward instead of backward, that refutation is a positive
+   claim about SU(2) structure: **symmetric tensor networks can be
+   contracted more cheaply than their width suggests, because
+   recoupling identities collapse cuts that generic contraction must
+   pay for.** The bridge did not break; it changed direction. This is a
+   message TO the tensor-network community rather than a borrowing FROM
+   it, and it is a sharper thesis than the one this document originally
+   sketched -- with a certified engine and an exhaustive-search oracle
+   behind it, which is exactly what such a claim needs to be credible.
+
 ## Aspirations versus implementation: they inverted
 
 The 1983 aspiration — search finds cheap recoupling formulas — proved

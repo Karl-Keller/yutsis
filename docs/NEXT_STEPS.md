@@ -98,38 +98,37 @@ What remains:
 
 ## Suggested order of attack
 
-1. **Re-derive the decomposition bound so it is admissible** under the
-   completed move set. This replaced the width bound as the target in
-   v0.8.4, on measurement rather than taste: the decomposition bound
-   already resolves the right number of cost classes (six distinct
-   values at n = 8, matching true `C*`, against the shipped bound's
-   two), so it is the DISCRIMINATING term the search is missing. It is
-   simply inadmissible -- 5 of 97 states at n = 8, 8 over the wider
-   corpus -- because loop excision and bridge cut remove two vertices
-   at no 6j cost.
+1. **Find a per-state lower bound on the FUTURE FLIP COUNT.** This is
+   what remains after v0.9.0 closed the previous three framings, and it
+   is stated in the form a solution must take.
 
-   The accounting, generalizing Lemma 0 to all five moves (`B` bubbles,
-   `L` loops, `X` bridge cuts, `T` triangles, `S` flips, `C` starting
-   components):
+   The cost model prices a flip at `SUM_PENALTY = 10` and a 6j at 1, so
+   only a bound that resolves `S >= 2` from `S >= 3` from `S >= 4` can
+   reorder A*'s queue. `sum_bound` gives `S >= 1` and nothing more.
+   Everything else tried is closed:
 
-       B + L + X + T = n/2 - C - X
-       #6j = T + S   = n/2 - C - B - L - 2X + S
+   - *magnitude*: adding `(n-2)/2`, correct and growing linearly in n,
+     changes expanded-node counts by ZERO (Lemma 4);
+   - *width*: `S >= cw - 3` is refuted on tetrahedron, prism and a
+     random n=10 graph (Lemma 4);
+   - *6j discrimination*: the gated decomposition bound is admissible
+     (0 violations where the ungated has 8) and resolves 7 classes to
+     true `C*`'s 6 -- and changes no expansions, because it resolves
+     BELOW the SUM_PENALTY granularity (Lemma 5);
+   - *the k=1-extended split*, the "principled" fix, makes admissibility
+     strictly worse: 17 violations against 8 (Lemma 5).
 
-   so the bound needs an upper bound on `B + L + 2X`. The present
-   decomposition bounds `B` alone via 2-edge-cuts and scores self-loop
-   and bridge pieces 0 as a carve-out. The principled version extends
-   the same k-line logic DOWN to k = 1: bridges and tadpoles are
-   1-cuts, they are exactly what `L` and `X` consume, and they should
-   be SPLIT ON rather than excluded.
+   Closure criterion unchanged: a `saved` column in
+   `scripts/headroom.py` that stops decaying with n. The leading
+   indicator is now printed by `scripts/certify_bounds.py` -- distinct
+   values of the candidate against distinct true `C*` -- but note
+   Lemma 5's warning that discrimination is necessary and NOT
+   sufficient; it must land at the right granularity.
 
-   Admissibility remains the crown jewel: `certify_bounds.py` must
-   return to 0 violations, and the payoff is measured by
-   `scripts/headroom.py` -- the `saved` column must stop decaying.
-
-2. **Width invariants are closed off** -- see Finding 5 and Lemma 4 of
-   docs/BOUNDS.md. Recorded so nobody spends a week rediscovering it.
-   If revisited, the obstacle to beat is that the 6j identity collapses
-   a 4-line cut for free, so cut-counting over-charges by construction.
+2. **Closed off, recorded so nobody re-derives them**: width invariants
+   (Lemma 4), the k=1-extended decomposition split (Lemma 5), and
+   magnitude-only bounds (Lemma 4). Each has a counterexample or a
+   measurement in docs/BOUNDS.md.
 
 ## Finding 4 — the k=1 sector (CLOSED in v0.8.0)
 
