@@ -112,16 +112,21 @@ What remains:
    went 20/3/3/2/2% to 36/14/9/8/7% at n = 16..26 -- roughly triple,
    and still decaying, so the criterion is NOT met.
 
-   **Rung two, next**: `S >= 2` iff no flip-child is
-   flip-free-reducible. Admissible by construction. Costs about `4|E|`
-   reducibility tests per node, so PRICE IT IN WALL CLOCK -- a node cut
-   that doubles per-node cost is a loss. Generalizes to
-   `S >= k+1` iff no k-flip sequence reaches a reducible state.
+   **Rung two, REFUTED (v0.10.1)**: `S >= 2` iff no reduction uses
+   exactly one flip -- correctly stated, that quantifies over every
+   state reachable without a flip, not just `g`'s flip children. Both
+   the correct form and a cheap sound restriction are admissible and cut
+   real nodes (12-35% and 4-19%), and both LOSE in wall clock, by
+   10x-23x and 1.3x-6x. Evaluating the bound costs more than the search
+   it saves. See Lemma 6 -- an admissible bound can be strictly better
+   as a bound and strictly worse as an algorithm, and only wall clock
+   shows it.
 
    If the ladder buys a constant factor and never an asymptotic one,
    that is Lemma 6 and gets written up as one.
 
-   **Fallback**: an endgame pattern database -- exact `C*` memoized by
+   **NEXT, and Lemma 6 is the argument for it**: an endgame pattern
+   database -- exact `C*` memoized by
    canonical certificate for every topology to n ~ 10-12, giving exact
    `h` once the search descends into tabulated territory.
 

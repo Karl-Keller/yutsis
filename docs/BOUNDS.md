@@ -467,6 +467,56 @@ A gap on a move that emits no 6j cannot be amortized against anything,
 which is why the potential-function proof fails and why the gated bound
 is certified-by-corpus rather than proved.
 
+## Lemma 6 — a bound can be strictly better and strictly worse at once
+
+Rung one (`S >= 1` by reducibility, v0.10.0) tripled the `saved` column
+and still decayed, so the ladder continued to rung two:
+
+    S >= 2  iff  no reduction of g uses exactly one flip
+
+**Stated correctly, which matters.** A one-flip reduction is
+`(free/triangle)* -> flip -> (free/triangle)* -> terminal`, so one flip
+suffices iff SOME state reachable from `g` without a flip has SOME
+flip-child that is flip-free-reducible. Quantifying only over `g`'s own
+flip children would be unsound: it would miss every reduction that
+takes a free move first.
+
+Both forms were built and measured. Both are admissible -- 0 violations
+against `C*` over the corpus -- and both cut real nodes. Both lose.
+
+| form | node cut (n=16..30) | wall clock |
+|---|---|---|
+| correct (over `FreeReach`) | 12-35% | **10x - 23x SLOWER** |
+| cheap (only where no free move applies, so `FreeReach = {g}`) | 4-19% | **1.3x - 6x SLOWER** |
+
+### Why, and why it generalizes
+
+Evaluating the bound costs more than the search it saves. Rung two asks
+`flip_free_reducible` of roughly `4|E|` flip children per node, and each
+such call runs a small DFS whose every step computes a nauty
+certificate. At n = 26 that is ~150 children per node against a search
+that averages well under a millisecond per expansion.
+
+So: **an admissible bound can be strictly better AS A BOUND and
+strictly worse AS AN ALGORITHM.** Rung two dominates rung one on every
+node-count metric -- more firings, more pruning, same costs -- and is
+unusable. Nothing in the node counts reveals this; only wall clock
+does. That is why the closure criterion is measured with
+`scripts/headroom.py` and not with expansion counts alone, and why the
+brief for this rung insisted on the point in advance.
+
+The corollary for what comes next: any candidate whose evaluation cost
+scales with the move set is suspect. The one that does not is the
+**endgame pattern database** -- exact `C*` memoized by canonical
+certificate for every topology up to n ~ 10-12, an O(1) dictionary
+lookup per node with no search inside the heuristic at all. Lemma 6 is
+the argument for it.
+
+### Status
+
+Not shipped. `scripts/rung2_probe.py` keeps both forms and their
+numbers reproducible. The shipped heuristic remains rung one.
+
 ## Petersen, certified
 
 `optimal_cost` runs uniform-cost search (`h = 0`) over the **blind**
