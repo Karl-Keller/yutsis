@@ -49,7 +49,7 @@ assignments — to 1e-9. Run it yourself:
 
     python scripts/verify_petersen.py
 
-## Verified results (v0.11.0)
+## Verified results (v0.11.1)
 
 - **The k=1 sector, half closed** (`yutsis.moves.excise_loop`,
   [docs/K1_SECTOR.md](docs/K1_SECTOR.md)): a closed diagram is a
@@ -69,6 +69,11 @@ assignments — to 1e-9. Run it yourself:
   benchmark costs were **re-certified**, not caveated: recomputed by
   uniform-cost search (`h = 0`, blind moves) they are unchanged —
   tetrahedron 1, prism 2, K3,3 13, cube 14, Petersen 37
+- **The shipped bound asks reducibility, not availability** (v0.10.0):
+  `S ≥ 1` iff the state cannot reach a terminal using only free and
+  triangle moves. Admissible by definition, subsumes the previous test
+  by construction, and fires on 223 of 910 corpus states against 35 —
+  tripling the search waste removed
 - **Petersen's minimum is three summations** — certified over the full
   move set, not merely the cycle-targeted class (see Findings below)
 - **Oracle conventions phase-exact**: the Racah-oriented tetrahedron
@@ -126,11 +131,10 @@ analysis in [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md)):
    reduction would cost at most 26. The wall's premise was also stale —
    "Petersen defeats blind flips" predates nauty, which collapsed the
    blind state space; blind-move A* now finishes in 18 expansions. What
-   remains is the *bound*: the summation term still returns `S >= 1`
-   whether the truth is one flip or five. The redirect that matters —
-   for cubic graphs the live invariants are **edge**-separator ones
-   (carving width, branchwidth), not vertex treewidth, since the
-   `(k-3)` calculus lives on edge cuts.
+   remains is the *bound*: the summation term resolves only `S >= 1`,
+   whether the truth is one flip or five, even after v0.10.0 replaced
+   the girth test with the stronger reducibility test. Five families
+   have now been tried against that gap — see Finding 5.
 4. **The k=1 sector** (closed in v0.8.0). Self-loops and bridges are
    the `k = 1` case of the separation calculus: a single line crossing
    a cut must carry `j = 0`. All three pieces now exist, each derived
@@ -146,22 +150,38 @@ analysis in [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md)):
    never enforced the 3j triad conditions (186 of 729 labelings wrong on
    an existing fixture, no k=1 move involved)
 
-5. **The heuristic is too coarse, not too small** (v0.8.4, and this
-   corrects the v0.8.1 framing). The wall is at **n≈28**; turning the
-   heuristic off costs ~2%, decaying with n. But the fix is not a
-   bigger bound: adding `(n-2)/2` — a correct term growing linearly in
-   n — changes expanded-node counts by **zero**, because a term that is
-   a function of depth shifts every frontier state equally and
-   separates none. Over all 97 states at n=8 with a computable optimum,
-   true `C*` takes **six** distinct values and the shipped bound takes
-   **two**. **Width invariants are closed off**: `S ≥ cw−3` is refuted
-   by tetrahedron, prism and a random n=10 graph — the 6j identity
-   collapses a 4-line cut for free, so cut-counting over-charges — and
-   carving width neither separates the cases nor scales. The target is
-   now the *discriminating* term: the 2-cut decomposition bound,
-   re-derived to be admissible under the k=1 move set. Evidence in
-   `scripts/width_probe.py`, derivation in
-   [docs/BOUNDS.md](docs/BOUNDS.md) Lemma 4
+5. **The search bound: four framings closed, the constant improved,
+   the asymptote untouched** (current through v0.11.0). The wall is at
+   **n≈28**, and the waste is 100% mandatory — `scripts/plateau_probe.py`
+   finds a **0% `f = C*` plateau** at every size, so with a consistent
+   `h` no tie-breaking or learned ordering can remove a single node.
+   Only a stronger admissible bound can. What has been tried:
+
+   - *magnitude* — adding `(n−2)/2`, correct and linear in n, changes
+     expansions by **zero**: a term that is a function of depth shifts
+     every frontier state equally (Lemma 4);
+   - *width* — `S ≥ cw−3` is **refuted** by tetrahedron, prism and a
+     random n=10 graph, because the 6j identity collapses a 4-line cut
+     for free, so cut-counting over-charges; carving width neither
+     separates the cases nor scales (Lemma 4);
+   - *6j discrimination* — a gated decomposition bound is admissible and
+     resolves 7 classes to true `C*`'s 6, and changes **nothing**: it
+     resolves below the `SUM_PENALTY` granularity that reorders the
+     queue (Lemma 5);
+   - *flip-count laddering* — rung one (`S ≥ 1` by **reducibility**
+     rather than move-availability) **shipped in v0.10.0** and tripled
+     the `saved` column; rung two is admissible, cuts 12–35% of nodes,
+     and runs **10×–23× slower**, because it runs a search inside the
+     bound (Lemma 6);
+   - *tabulation* — the endgame pattern database (v0.11.0, opt-in):
+     47,284 exact entries for `n ≤ 16`, the first candidate to win on
+     **both** nodes (−27% to −74%) and **wall clock** (−21% to −71%).
+
+   Every one of them improves the constant and leaves the asymptote
+   alone, because the benefit decays with n. Evidence:
+   `scripts/width_probe.py`, `scripts/plateau_probe.py`,
+   `scripts/rung2_probe.py`, `scripts/build_patterns.py`; derivations in
+   [docs/BOUNDS.md](docs/BOUNDS.md), Lemmas 4–7
 
 Broader roadmap: cost-aware associahedron search and Qiskit emission in
 `yutsis.circuits`; qudit generalization; general n-line separator cuts;

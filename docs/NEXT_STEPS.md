@@ -71,14 +71,14 @@ workaround after changing anything upstream of it.**
 What remains:
 
 1. ~~Certify or refute Petersen~~ — done, see above.
-2. Build the RIGHT admissible bound. The summation term is still the
-   v0.6.0 girth test: it returns `S >= 1` whether the truth is one flip
-   or five, so it bounds Petersen at `S >= 1` against a certified
-   `S = 3`. The motivation is now scaling rather than Petersen — larger
-   graphs where blind-move A* does *not* collapse. Note the redirect:
-   for cubic graphs the natural invariants are **edge**-separator ones
-   (carving width, branchwidth), not vertex treewidth, because the
-   `(k-3)` calculus lives natively on edge cuts. Empirically, a plain
+2. Build the RIGHT admissible bound. The summation term became the
+   REDUCIBILITY test in v0.10.0 -- stronger than the v0.6.0 girth test
+   it replaced -- but it still resolves only `S >= 1`, whether the truth
+   is one flip or five, so it bounds Petersen at `S >= 1` against a
+   certified `S = 3`. The motivation is scaling rather than Petersen:
+   larger graphs where blind-move A* does *not* collapse. The
+   edge-separator redirect recorded here was itself refuted in v0.9.0;
+   see Lemma 4. Empirically, a plain
    treewidth bound is also *weaker* than the girth test here: prism and
    K3,3 both have treewidth 3 but `S = 0` and `S = 1` respectively, so
    treewidth alone cannot separate them.

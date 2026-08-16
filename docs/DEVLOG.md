@@ -1145,3 +1145,57 @@ payoff.
 **Verification.** 102 tests green (8 new), ruff clean, `certify_bounds`
 CERTIFIED and unchanged, stress costs identical, `verify_petersen`
 still +0.004629630.
+
+## Session 21 — v0.11.1 (2026-08-16): documentation audit
+
+No code change. An audit of the live documents against the last four
+releases, prompted by the suspicion that prose had drifted while the
+lemmas moved. It had, in four places, and one of them was a flat
+contradiction.
+
+**`docs/BOUNDS.md`, Lemma 1 was WRONG.** It still stated the bound as
+`SUM_PENALTY if girth_lower(G) >= 4`, which v0.10.0 replaced with the
+reducibility test. The proof underneath was still valid -- it never used
+girth -- but the formula a reader would copy was the superseded one.
+Restated properly, with the history of both changes of shape (v0.6.0
+availability, the k=1 coupling that bit twice, v0.10.0 reducibility) and
+the standing rule in its surviving form.
+
+**`docs/RELEVANCE.md` contradicted itself.** The v0.9.0 session added
+bullet 4 -- the tensor-network bridge reversed, width does NOT govern
+summation counts -- and its second edit, to the "aspirations inverted"
+section, silently no-op'd. So the document simultaneously claimed the
+refutation and the refuted premise ("summation counts are governed by
+width invariants"). The verdicts section also still awaited "the
+width-derived bound", which is refuted. Both corrected.
+
+That is the SAME silent-`str.replace` failure the assert-your-
+replacements rule was written for, one session after writing it -- the
+rule was applied to the edit I was watching and not to the one I
+assumed had worked. Verifying a multi-part edit means verifying every
+part, not the part you happened to grep for.
+
+**`README.md` Finding 5 stopped at v0.8.4** and still pointed readers at
+a target -- re-deriving the decomposition bound -- that v0.9.0 refuted.
+Rewritten to carry the whole arc: five families tried, four closed, two
+helping, all improving the constant and none the asymptote. The
+Verified-results section also never mentioned that the shipped bound
+changed in v0.10.0, which is the most user-visible change in three
+releases.
+
+**`docs/NEXT_STEPS.md`** still described the summation term as "the
+v0.6.0 girth test".
+
+**Also:** `docs/BOUNDS.md` gains Lemma 7 (the pattern database: the cut
+the brief set too low, the level-wise build, the both-metrics win, the
+decay) and a five-family scoreboard, and the Lemma 2 numbering gap is
+explained rather than left as a silent hole.
+
+**What it taught.** Documentation drifts in exactly the places the code
+moved fastest, and the drift is invisible to every gate we have: tests,
+ruff and CI all pass on a document that contradicts itself. The oracle
+for prose is reading it against the code, on purpose, on a schedule.
+An audit after four releases found four defects; an audit every release
+would have found them one at a time.
+
+102 tests green, ruff clean; no behaviour change.
