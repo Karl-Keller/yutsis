@@ -614,6 +614,90 @@ touches the asymptote, and the reason is the same in both cases: the
 benefit is concentrated where the bound is informative, and the
 fraction of the search that lies there shrinks as `n` grows.
 
+## Lemma 8 — landmarks fail, and why every static bound has
+
+The remaining shape worth trying was a **landmark packing**: find `k`
+pairwise-disjoint local obstructions, each independently forcing a flip,
+so `S >= k`. Unlike every earlier candidate this one scales by
+construction -- a packing cannot saturate the way a global invariant
+does -- so it was the best remaining hope for a non-decaying bound.
+
+### First, a route that closed immediately
+
+Since every vertex-removing move needs a short cycle, and a flip must
+create one, the tempting chain is `S >= (T - T0)/c` where `c` bounds the
+vertex-removing moves one flip can enable. Measured over optimal
+reductions, the longest run of consecutive vertex-removing moves is 2 to
+5 and does NOT grow with `n` (it is 2 at both n = 26 and n = 30, with
+`T/S` falling from 5.0 at n = 12 to 1.27 at n = 30).
+
+But there is no universal `c`: a fully reducible graph does all its
+removals with zero flips -- n = 10 does 4 removals and `S = 0`. The run
+length is a property of the state, not a constant, so the chain
+collapses back into the flip-count ladder of Lemma 6.
+
+### The packing, and its scaling
+
+Landmark: a vertex whose radius-`near` ball contains NO short-cycle
+structure -- no triangle, bubble, self-loop, or cuttable bridge -- packed
+so that chosen vertices are pairwise more than `sep` apart, since a flip
+touches only a bounded neighbourhood.
+
+The natural parameters are unsound outright: at `sep=2, near=1` seven of
+44 root graphs have `k > S`, and even `sep=3, near=1` has two. Tightened
+to **`sep=3, near=2` the packing is clean on all 44 roots** -- and it
+SCALES, which nothing before it did:
+
+| n | 12 | 20 | 28 | 32 | 40 |
+|---|---|---|---|---|---|
+| mean k | 0.7 | 1.5 | 2.0 | 2.7 | 3.3 |
+
+`k/n` holds at 0.05-0.08, so `k ~ n/13`, capturing about 30% of the true
+`S` with the RATIO roughly constant in `n` -- exactly the property a
+non-decaying `saved` column requires.
+
+### Refuted on the interior
+
+Roots were clean; the reachable interior is not. Over 700 mid-search
+states with a computable optimum, **5 violations of `k <= S`**.
+
+Four of the five carry `true_girth = 2`, i.e. a bubble is present. That
+is the mechanism: the landmark certifies that a vertex's radius-2 ball
+is free of short cycles, and then a bubble excision ELSEWHERE contracts
+the graph and pulls structure into that ball, so the vertex is consumed
+with no flip ever occurring near it.
+
+Raising `sep` or `near` cannot repair this. It is not a distance
+problem: **contraction changes distances.**
+
+### The rule this establishes
+
+Every candidate that has failed since Finding 5 failed the same way. A
+bound computed from the CURRENT graph's structure is invalidated by
+moves that change the structure elsewhere, because contraction is not
+local.
+
+| bound | kind | verdict |
+|---|---|---|
+| width, `cw - 3` | static | refuted (Lemma 4) |
+| gated 6j decomposition | static | admissible, buys nothing (Lemma 5) |
+| landmark packing | static | refuted (this lemma) |
+| reducibility, `S >= 1` | **reachability** | SHIPPED, works (v0.10.0) |
+| flip ladder rung two | **reachability** | correct, too expensive (Lemma 6) |
+| pattern database | **reachability** (exact) | works, opt-in (Lemma 7) |
+
+**Only reachability-based bounds survive here.** Static properties ask
+what the graph looks like; the moves are free to change that. Reachability
+asks what the state can actually reach, which no later move can falsify.
+The rule is retrospective on five sessions and predictive for the next
+candidate: if a proposal can be evaluated without following moves, it is
+already suspect.
+
+The cost of obeying it is Lemma 6 -- reachability is expensive to
+evaluate -- so the live design problem is a reachability bound that is
+cheap, which is precisely what the pattern database achieves by paying
+the cost once, offline.
+
 ## Petersen, certified
 
 `optimal_cost` runs uniform-cost search (`h = 0`) over the **blind**

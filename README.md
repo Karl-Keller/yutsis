@@ -49,7 +49,7 @@ assignments — to 1e-9. Run it yourself:
 
     python scripts/verify_petersen.py
 
-## Verified results (v0.11.1)
+## Verified results (v0.11.2)
 
 - **The k=1 sector, half closed** (`yutsis.moves.excise_loop`,
   [docs/K1_SECTOR.md](docs/K1_SECTOR.md)): a closed diagram is a
@@ -177,8 +177,17 @@ analysis in [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md)):
      47,284 exact entries for `n ≤ 16`, the first candidate to win on
      **both** nodes (−27% to −74%) and **wall clock** (−21% to −71%).
 
-   Every one of them improves the constant and leaves the asymptote
-   alone, because the benefit decays with n. Evidence:
+   - *landmark packing* — disjoint local obstructions, the one family
+     that scales by construction (`k ≈ n/13`, ratio to `S` constant):
+     clean on 44 roots, **refuted on the interior**, 5 violations in
+     700 mid-search states (Lemma 8).
+
+   Every one improves the constant and leaves the asymptote alone. The
+   pattern they share: **only reachability-based bounds survive.** A
+   bound read off the current graph's structure is invalidated by moves
+   that change the structure elsewhere, because contraction is not
+   local. The two that work — reducibility and the exact table — both
+   ask what a state can *reach*. Evidence:
    `scripts/width_probe.py`, `scripts/plateau_probe.py`,
    `scripts/rung2_probe.py`, `scripts/build_patterns.py`; derivations in
    [docs/BOUNDS.md](docs/BOUNDS.md), Lemmas 4–7
