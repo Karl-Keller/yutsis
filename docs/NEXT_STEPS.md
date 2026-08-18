@@ -147,14 +147,27 @@ What remains:
    engine must work without it (`yutsis.patterns`,
    `scripts/build_patterns.py`).
 
-   **What is left.** Three sessions of candidates have improved the
-   constant and left the asymptote alone. The waste sits at n = 16-20
-   where the table cannot reach (topology counts grow 4-5x per level,
-   so n = 20 is ~10^5-10^6 entries each needing exact C*). Either the
-   table must be pushed to 18-20 -- worth pricing, since the build is
-   level-wise and embarrassingly parallel -- or the asymptotic problem
-   needs an idea that none of magnitude, width, 6j-discrimination,
-   flip-count laddering or tabulation has supplied.
+   **Landmarks: refuted (v0.11.2, Lemma 8).** The one family that
+   scaled by construction -- `k ~ n/13`, ratio to `S` constant -- clean
+   on 44 roots and refuted on the interior, 5 violations in 700
+   mid-search states. A bubble excision elsewhere contracts the graph
+   and pulls structure into the certified-empty ball. Not repairable by
+   widening the radius: contraction changes distances.
+
+   **THE RULE, and it should gate every future proposal.** Only
+   REACHABILITY-based bounds survive. Static properties -- width, 6j
+   decomposition, landmarks -- are all refuted or inert, because the
+   moves are free to change the structure they read. Reducibility, the
+   flip ladder and the pattern database are all reachability
+   properties, and all work subject only to evaluation cost. **If a
+   proposal can be evaluated without following moves, it is already
+   suspect.**
+
+   The price is Lemma 6: reachability is expensive. So the live design
+   problem is a CHEAP reachability bound -- which is what the pattern
+   database is, paying the cost once, offline.
+
+   **What is left.** Five sessions of candidates have improved the
 
 2. **Closed off, recorded so nobody re-derives them**: width invariants
    (Lemma 4), the k=1-extended decomposition split (Lemma 5), and

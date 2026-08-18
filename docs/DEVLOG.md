@@ -1199,3 +1199,59 @@ An audit after four releases found four defects; an audit every release
 would have found them one at a time.
 
 102 tests green, ruff clean; no behaviour change.
+
+## Session 22 — v0.11.2 (2026-08-18): landmarks refuted, and the rule behind five failures
+
+No code. A measurement session that killed a candidate and, more
+usefully, explained the shape of every failure since Finding 5.
+
+**Why landmarks were worth trying.** A packing of disjoint obstructions
+scales by construction -- unlike a global invariant, it cannot saturate
+-- so it was the only remaining shape that could give a non-decaying
+bound.
+
+**A shortcut that closed first.** `S >= (T - T0)/c`, with `c` bounding
+the vertex-removing moves one flip can enable, would scale since `T`
+grows linearly. Measured: the longest run of consecutive removals is 2
+to 5 and does not grow with n (2 at both n = 26 and n = 30; `T/S` falls
+5.00 -> 1.27 from n = 12 to n = 30). But there is no universal `c` -- a
+fully reducible graph does every removal with zero flips, as n = 10 does
+-- so the chain collapses into the Lemma 6 ladder.
+
+**The packing itself scaled, which nothing before it did.** At
+`sep=3, near=2` -- a vertex whose radius-2 ball holds no triangle,
+bubble, loop or cuttable bridge, packed more than 3 apart -- the count
+runs 0.7, 1.5, 2.0, 2.7, 3.3 for n = 12..40, i.e. `k ~ n/13` with `k/n`
+flat at 0.05-0.08. It captures ~30% of true `S` with the RATIO constant
+in n, which is exactly the property the closure criterion needs. Clean
+on all 44 root graphs.
+
+**Refuted on the interior.** 700 mid-search states, **5 violations**.
+Four carry `true_girth = 2`: a bubble excision ELSEWHERE contracts the
+graph and pulls structure into the certified-empty ball, so the vertex
+is consumed with no flip near it. Raising `sep` or `near` cannot help --
+it is not a distance problem, **contraction changes distances**.
+
+Roots were clean and the interior was not, which is the third time a
+bound has died exactly there (the v0.6.0 bubble counterexample, the k=1
+coupling, now this). Root-only evidence is not evidence.
+
+**The rule, which is the real output.** Every failure since Finding 5
+shares a mechanism: a bound computed from the CURRENT structure is
+invalidated by moves that change structure elsewhere. Width, 6j
+discrimination and landmarks are all static; all failed. Reducibility,
+the flip ladder and the pattern database are all REACHABILITY
+properties; all work, subject only to cost.
+
+**Only reachability-based bounds survive here.** Static properties ask
+what the graph looks like and the moves are free to change that;
+reachability asks what the state can reach, which no later move can
+falsify. Retrospective over five sessions, and predictive: a proposal
+evaluable without following moves is already suspect.
+
+The price of the rule is Lemma 6 -- reachability is expensive -- so the
+live design problem is a CHEAP reachability bound, which is exactly what
+the pattern database achieves by paying the cost once, offline. That is
+the next task.
+
+102 tests green, ruff clean, no behaviour change.
