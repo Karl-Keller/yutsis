@@ -147,6 +147,47 @@ What remains:
    engine must work without it (`yutsis.patterns`,
    `scripts/build_patterns.py`).
 
+   **Pushed to `n <= 18` (v0.12.0), and it decays anyway.** 470,975
+   entries, closed, 166.8 MB, 2h 12m on one core. Over sizes 20..36,
+   five seeds each, as mean-of-ratios / ratio-of-means:
+
+       n            20    22    24    26    28    30    32    34    36
+       n<=18 m-o-r -43%  -51%  -51%  -77%  -50%  -63%  -44%  -14%  -21%
+       n<=18 r-o-m -49%  -72%  -67%  -78%  -34%  -34%  -15%   -5%   -8%
+       n<=16 m-o-r -41%  -38%  -43%  -32%  -18%  -28%  -10%   -4%   -5%
+       hit rate     97%   79%   83%   52%   26%   36%   15%    4%    7%
+
+   Two to four times the shipped table through n = 32, single digits by
+   n = 34 on both aggregates. The cut buys about FOUR IN N -- the n<=16
+   table is spent by n = 30, this one by n = 34 -- at 10x the entries
+   and 14x the build. `saved` still tracks the hit rate down, so the
+   closure criterion is still NOT met, for the fourth candidate running.
+
+   Load is 0.10s and 211 MB resident, and wall clock tracks nodes at
+   every size including a 3% hit rate returning -19% seconds, so there
+   is no Lemma 6 reversal: the cost is the build and the storage, not
+   the lookup.
+
+   **Two measurement rules, both learned by getting it wrong here.**
+   SINGLE-SEED EVIDENCE IS NOT EVIDENCE: five sizes at `seed = 7n` read
+   -64/-85/-70/-81/-75, a flat `saved` column and an apparent closure,
+   which four more seeds per size dissolved -- at n = 30 that seed is an
+   easy instance, 1,921 expansions against a 7,202 mean, and the
+   per-instance spread at n = 32 runs -92% to -7%. And THE AGGREGATE IS
+   PART OF THE CLAIM: a ratio of means weights the hardest instance of
+   a size almost exclusively and read -8% where instances read -41% and
+   -15%. Report both, and exclude sizes where the expansion cap lets
+   only easy instances finish -- a mean over survivors is a selection
+   effect (this is why nothing above n = 36 is quoted).
+
+   **A seeding hypothesis, raised and refuted in the same session.**
+   The n<=16 closure seeded to 16 holds 47,284 states against 130,559
+   in the same range inside the n<=18 closure, which looked like it
+   should explain the decay. Instrumenting coverage beside hits shows
+   them EQUAL in every row: every n <= 16 state a search actually meets
+   is already in the shipped table. The n<=18 table restricted to a
+   cutoff of 16 reproduces the shipped expansions exactly, row for row.
+
    **Landmarks: refuted (v0.11.2, Lemma 8).** The one family that
    scaled by construction -- `k ~ n/13`, ratio to `S` constant -- clean
    on 44 roots and refuted on the interior, 5 violations in 700
@@ -167,7 +208,35 @@ What remains:
    problem is a CHEAP reachability bound -- which is what the pattern
    database is, paying the cost once, offline.
 
-   **What is left.** Five sessions of candidates have improved the
+   **What is left.** Six sessions of candidates have improved the
+   constant and left the asymptote alone. Every one of them was
+   admissible, most were measured, and none moved the decay. The
+   remaining moves are to accept a constant-factor engine and say so, or
+   to attack discrimination at the SUM_PENALTY granularity that Lemma 5
+   says is the only granularity that changes a decision.
+
+   **GPU (RTX 5070, sm_120): the offline build, not the search, and
+   third in line.** Profiled on the n<=14 enumeration, `canonical()` is
+   47% of the walk -- so an infinitely fast canonicaliser is a 1.9x
+   ceiling on that phase, before a line of CUDA. More than half of that
+   47% is not graph theory but pynauty marshalling (`set_adjacency_dict`
+   plus 24.4M `_check_vertices` calls); nauty's own C kernel is 22%.
+   And the walk makes 84 `canonical()` calls per distinct state, since
+   every successor is a fresh object. So: kill the redundancy, then use
+   the 24 idle cores the build never touches, then bypass the
+   marshalling -- and only then consider a GPU.
+
+   A GPU would suit the shape of the remaining work (millions of
+   independent 18-vertex graphs, an adjacency bitmatrix in registers,
+   VRAM a non-issue at ~31 MB packed), but it needs a FIXED-COST
+   canonical form, because refinement-with-backtracking is exactly the
+   divergence GPUs punish. A* itself is a poor target regardless --
+   sequential, queue-driven, and its `h` is already a dict lookup.
+
+   The gate is the result above, and it has fallen: since `saved` still
+   tracks the hit rate, a faster builder buys `n = 20` and a few more
+   sizes of CONSTANT, not the asymptote. Fund it as engineering
+   throughput if the constant is worth it, not as a route to closure.
 
 2. **Closed off, recorded so nobody re-derives them**: width invariants
    (Lemma 4), the k=1-extended decomposition split (Lemma 5), and

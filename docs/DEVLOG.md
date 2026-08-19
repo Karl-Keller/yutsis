@@ -1255,3 +1255,105 @@ the pattern database achieves by paying the cost once, offline. That is
 the next task.
 
 102 tests green, ruff clean, no behaviour change.
+
+## Session 23 — v0.12.0 (2026-08-18): the n = 18 table, and a fourth honest negative
+
+The brief asked for three things: build the table at n = 18, measure the
+hit rate at n = 26-30, and price it honestly. All three are done. The
+table exists, it is the largest constant-factor win the project has
+produced, and it does not meet the closure criterion.
+
+**The result first.** 470,975 entries, closed, 166.8 MB on disk, built
+in 2h 12m on one core (3,998s to enumerate, 3,935s to build). Against
+the shipped rung-one bound, over sizes 20..36 with five seeds each:
+
+    n              20    22    24    26    28    30    32    34    36
+    n<=18 (m-o-r) -43%  -51%  -51%  -77%  -50%  -63%  -44%  -14%  -21%
+    n<=18 (r-o-m) -49%  -72%  -67%  -78%  -34%  -34%  -15%   -5%   -8%
+    n<=16 (m-o-r) -41%  -38%  -43%  -32%  -18%  -28%  -10%   -4%   -5%
+    hit rate       97%   79%   83%   52%   26%   36%   15%    4%    7%
+
+Two to four times the shipped table's saving through n = 32, and both
+aggregates decay to single digits by n = 34. `saved` still tracks the
+hit rate down. **The closure criterion is not met.** Four sessions of
+candidates have now improved the constant and left the asymptote alone,
+which is worth recording plainly rather than framing a fifth time.
+
+What n = 18 buys is about four in n: the shipped table is spent by
+n = 30, this one by n = 34, at 10x the entries and 14x the build.
+
+**Single-seed evidence is not evidence.** The first measurement of this
+table, five sizes at `seed = 7n`, read -64/-85/-70/-81/-75 with no
+trend, and that is a flat `saved` column -- the closure criterion,
+apparently met. It was an artifact. At n = 30 that seed is an easy
+instance, 1,921 base expansions against a 7,202 five-seed mean. Adding
+four seeds per size restored the decay. The per-instance spread is
+enormous -- -92% to -7% at n = 32 -- so a single instance cannot
+distinguish a trend from a draw. This is the interior/root lesson of
+Session 22 in a new costume: the cheap measurement agreed with the
+hypothesis, and it was the measurement that was wrong.
+
+**And the aggregate matters as much as the sample.** A ratio of means
+weights the hardest instance of each size almost exclusively; it read
+-8% at n = 34 where the individual instances read -41% and -15%. Both
+statistics are legitimate -- corpus throughput versus typical instance
+-- and they disagree by a factor of three, so both are now reported.
+Sizes above 36 are excluded outright: under a 300k expansion cap only
+the easy instances of a size finish, and a mean over survivors is a
+selection effect, not a measurement. An n = 40 row read -67% on one
+surviving instance whose base cost was 1,708 expansions, next to
+n = 38's 172,550.
+
+**A hypothesis of our own, refuted by the instrument.** The n <= 16
+closure seeded to 16 holds 47,284 states; the n <= 18 closure holds
+130,559 in the same size range, 2.8x more. That looked like it should
+explain the shipped table's hit-rate decay, and there was a matching
+gap in the record -- 43% of expansions at n <= 16 against a 24%
+measured hit rate at n = 26. It is not so. Instrumenting coverage
+alongside hits shows the two EQUAL in every row: every n <= 16 state
+these searches actually meet is already in the shipped table, and the
+extra 83,275 are never visited. The 43-vs-24 gap was a denominator
+mismatch of our own making, expansions against heuristic calls. The
+control arm confirms it: the n <= 18 table restricted to a cutoff of 16
+reproduces the shipped table's expansions exactly, row for row.
+
+**Two memory defects, neither of them about the size of the problem.**
+n = 18 failed twice before it succeeded, at 31.4 GB and then 35.1 GB,
+and both were representation.
+
+`build_table` held each level's flip graph as certificate lists plus a
+reversed copy. Certificates are 360 bytes and the n = 18 level has some
+38M flip edges, so the two copies accounted for 21.6 GB against a state
+set costing about 2 GB. Interned to integer ids in a CSR of `array("i")`
+the same graph costs 0.4 GB. `enumerate_states` filtered candidates
+against POPPED states, so a state with 111 blind successors was queued
+once per predecessor reaching it: a 4,000,000-entry queue for 470,975
+distinct states, some 32 GB of duplicate `Graph` objects. Filtering on
+the way in closes over the same set.
+
+Both are refactors and were treated as such -- the oracle is dict
+equality against the previous implementation at n <= 10, 12 and 14,
+captured before either diff was written, plus `optimal_cost`
+independently, plus the old walk kept in the test file as the oracle for
+the new one.
+
+**A silent inadmissibility, closed.** The third change is not a
+refactor. A walk stopped by cap or budget returns states whose
+successors were never enumerated; `build_table` then minimises each exit
+cost over the survivors only, which can only push an entry ABOVE the
+true optimum -- and an overestimate breaks A* without breaking a test.
+Green everywhere, wrong on the page, in the one place the project
+trusts absolutely. `enumerate_states` now raises `TruncatedEnumeration`
+rather than returning a partial set. The shipped n <= 16 table was safe
+only by luck: it closed in ~540s under a 900s budget.
+
+**The pricing, honestly.** Load is 0.10s for 166.8 MB and 211 MB
+resident, so the table costs nothing to bring up. Wall clock tracks node
+counts at every size measured, including a 3% hit rate at n = 34 that
+still returned -19% seconds: there is no Lemma 6 reversal here, and the
+table remains the only candidate to win on both. The cost is the build,
+and the storage, and an asymptote it does not move.
+
+Housekeeping: `certify_bounds` reports 0 admissibility violations and 0
+step violations over 46,005 moves, CERTIFIED. 106 tests green, ruff
+clean.

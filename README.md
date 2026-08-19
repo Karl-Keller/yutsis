@@ -49,7 +49,7 @@ assignments — to 1e-9. Run it yourself:
 
     python scripts/verify_petersen.py
 
-## Verified results (v0.11.2)
+## Verified results (v0.12.0)
 
 - **The k=1 sector, half closed** (`yutsis.moves.excise_loop`,
   [docs/K1_SECTOR.md](docs/K1_SECTOR.md)): a closed diagram is a
@@ -151,7 +151,7 @@ analysis in [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md)):
    an existing fixture, no k=1 move involved)
 
 5. **The search bound: four framings closed, the constant improved,
-   the asymptote untouched** (current through v0.11.0). The wall is at
+   the asymptote untouched** (current through v0.12.0). The wall is at
    **n≈28**, and the waste is 100% mandatory — `scripts/plateau_probe.py`
    finds a **0% `f = C*` plateau** at every size, so with a consistent
    `h` no tie-breaking or learned ordering can remove a single node.
@@ -176,6 +176,11 @@ analysis in [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md)):
    - *tabulation* — the endgame pattern database (v0.11.0, opt-in):
      47,284 exact entries for `n ≤ 16`, the first candidate to win on
      **both** nodes (−27% to −74%) and **wall clock** (−21% to −71%).
+     Pushed to `n ≤ 18` in v0.12.0 — 470,975 entries, 2h 12m, 166.8 MB
+     — it is **2–4× better through n=32 and still decays**, reaching
+     single digits by n=34 on both aggregates. The cut buys about
+     **four in n** for 10× the entries: a better constant, the same
+     asymptote (Lemma 7).
 
    - *landmark packing* — disjoint local obstructions, the one family
      that scales by construction (`k ≈ n/13`, ratio to `S` constant):
