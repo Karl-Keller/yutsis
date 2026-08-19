@@ -1,0 +1,22 @@
+     25000 states, queue 1116383,   220s, 9.2 GB
+     50000 states, queue 2224261,   489s, 18.5 GB
+     75000 states, queue 2734601,   720s, 23.0 GB
+    100000 states, queue 3200626,   993s, 27.6 GB
+    125000 states, queue 3581739,  1241s, 30.4 GB
+    150000 states, queue 4016333,  1522s, 34.2 GB
+    175000 states, queue 3980139,  1735s, 35.1 GB
+    200000 states, queue 3629618,  1994s, 35.1 GB
+    225000 states, queue 3527433,  2238s, 35.1 GB
+    250000 states, queue 3542568,  2487s, 35.1 GB
+    275000 states, queue 3093180,  2715s, 35.1 GB
+    300000 states, queue 2594608,  2942s, 35.1 GB
+    325000 states, queue 2349602,  3150s, 35.1 GB
+    350000 states, queue 1791453,  3337s, 35.1 GB
+    375000 states, queue 1645051,  3526s, 35.1 GB
+    400000 states, queue 1164371,  3674s, 35.1 GB
+    425000 states, queue  812197,  3826s, 35.1 GB
+    450000 states, queue  344354,  3932s, 35.1 GB
+enumerated 470975 states in 3998s  CLOSED=True  35.1 GB
+by level: {2: 2, 4: 8, 6: 31, 8: 140, 10: 691, 12: 3782, 14: 21265, 16: 104640, 18: 340416}
+built 470975 entries in 3935s  peak 35.1 GB
+saved, 166.8 MB

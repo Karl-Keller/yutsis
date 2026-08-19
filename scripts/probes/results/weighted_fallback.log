@@ -1,0 +1,6 @@
+   n   3n/2 |  C* or LB     exp     sec |  w2 cost     sec |  w5 cost     sec |   bracket | old greedy
+  30    45j |       135     477     0.5 |      135     0.4 |      146     0.4 | +0% exact |        135
+  34    51j |       126    2031     2.5 |      126     3.5 |      148     3.4 | +0% exact |        126
+  36    54j |       149    2435     3.6 |      149     3.1 |      149     3.1 | +0% exact |        149
+  40    60j |       125  120001   554.1 |     None   518.0 |     None   519.9 |        -- |  None WALL
+  44    66j |       137  120001   625.2 |     None   622.6 |     None   623.1 |        -- |  None WALL
