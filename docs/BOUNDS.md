@@ -598,6 +598,54 @@ optimal path, at no per-node price.
 **It still decays**, tracking the hit rate from 94% down to 14%. The
 closure criterion -- a `saved` column that stops decaying -- is not met.
 
+### One level further: n <= 18 (v0.12.0)
+
+The obvious reply to a decaying hit rate is a bigger table, so the cut
+was pushed one level. 470,975 entries, closed, 166.8 MB, 2h 12m on one
+core -- 10x the entries and 14x the build of `n <= 16`. Over sizes
+20..36 at five seeds each:
+
+| n | 20 | 22 | 24 | 26 | 28 | 30 | 32 | 34 | 36 |
+|---|---|---|---|---|---|---|---|---|---|
+| n<=18, mean-of-ratios | -43% | -51% | -51% | -77% | -50% | -63% | -44% | **-14%** | **-21%** |
+| n<=18, ratio-of-means | -49% | -72% | -67% | -78% | -34% | -34% | -15% | -5% | -8% |
+| n<=16, mean-of-ratios | -41% | -38% | -43% | -32% | -18% | -28% | -10% | -4% | -5% |
+| hit rate | 97% | 79% | 83% | 52% | 26% | 36% | 15% | 4% | 7% |
+
+Two to four times the `n <= 16` table through n = 32, single digits by
+n = 34 on both aggregates. **The decay is unchanged in kind; it is
+displaced by about four in n.** The `n <= 16` table is spent by n = 30,
+this one by n = 34, and the mechanism is identical -- the saving tracks
+the hit rate, and the hit rate is set by how much of the search lies
+below the cut. Each level costs an order of magnitude and buys two in
+`n`, so this route is a geometric price for a linear return.
+
+There is no Lemma 6 reversal to report: load is 0.10s for 211 MB
+resident, and wall clock tracks nodes at every size, including a 3% hit
+rate at n = 34 that still returned -19% seconds. The price of a table
+is paid in the build and the storage, never at the node.
+
+### A measurement caveat that nearly inverted this lemma
+
+At ONE seed per size the same table read -64/-85/-70/-81/-75 over
+n = 20..30: a `saved` column with no trend, which is the closure
+criterion apparently met. It was an artifact of instance variance. At
+n = 30 the seed `7n` is an easy instance -- 1,921 expansions against a
+7,202 five-seed mean -- and the per-instance spread at n = 32 runs -92%
+to -7%. Four more seeds per size restored the decay.
+
+The aggregate is equally part of the claim: a ratio of means weights
+the hardest instance of each size almost exclusively, reading -8% at
+n = 34 where individual instances read -41% and -15%. Both statistics
+are reported above because they answer different questions and disagree
+by a factor of three. Sizes above 36 are excluded: under an expansion
+cap only the easy instances of a size finish, so a mean over survivors
+measures the cap, not the bound.
+
+**Single-seed evidence is not evidence** -- the Lemma 8 lesson (root-only
+evidence is not evidence) transposed from where a bound is measured to
+how many times.
+
 ### The scoreboard after five families
 
 | family | admissible | nodes | wall clock | verdict |
@@ -608,9 +656,10 @@ closure criterion -- a `saved` column that stops decaying -- is not met.
 | flip ladder, rung 1 | yes | better | better | SHIPPED v0.10.0 |
 | flip ladder, rung 2 | yes | better | **much worse** | Lemma 6 |
 | tabulation, n <= 16 | yes | better | better | opt-in v0.11.0 |
+| tabulation, n <= 18 | yes | better | better | opt-in v0.12.0 |
 
-Two of the six improve the search. Both improve the constant. Neither
-touches the asymptote, and the reason is the same in both cases: the
+Three of the seven improve the search. All three improve the constant.
+None touches the asymptote, and the reason is the same in both cases: the
 benefit is concentrated where the bound is informative, and the
 fraction of the search that lies there shrinks as `n` grows.
 

@@ -86,7 +86,7 @@ def test_heuristic_falls_back_above_the_cut():
 # ---------------------------------------------------------------------
 
 def _enumerate_dedup_on_pop(max_n, seeds, budget=60.0):
-    """The pre-v0.11.3 walk: filter candidates against POPPED states.
+    """The pre-interning walk: filter candidates against POPPED states.
 
     Kept here as the oracle for the in-queue de-duplication. It queues
     a state once per predecessor that reaches it, which is what made the

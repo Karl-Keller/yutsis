@@ -7,11 +7,18 @@ admissible by construction. See docs/BOUNDS.md, Lemma 6, for why a
 table is the shape that survives -- and `yutsis.patterns` for the
 measured payoff and its decay.
 
-Rough sizes and build times, seeded as below:
+Rough sizes and build times, seeded as below, on one core:
 
-    n <= 12      910 entries      ~3 s
-    n <= 14    5,860 entries     ~37 s
-    n <= 16   47,284 entries     ~9 min
+    n <= 12        910 entries      ~3 s
+    n <= 14      5,860 entries     ~37 s
+    n <= 16     47,284 entries     ~9 min      14.7 MB
+    n <= 18    470,975 entries    ~2h 12m     166.8 MB
+
+Growth is ~10x in entries and ~14x in time per level, so n <= 20 is a
+day's work as written and wants the level-wise parallelism first (see
+docs/NEXT_STEPS.md). Raise --cap and --budget together: a walk stopped
+early raises TruncatedEnumeration, because a partial state set yields
+entries ABOVE the true optimum and breaks admissibility silently.
 """
 from __future__ import annotations
 
@@ -28,6 +35,8 @@ def main():
     ap.add_argument("--max-n", type=int, default=14)
     ap.add_argument("--out", default="patterns.pkl")
     ap.add_argument("--budget", type=float, default=900.0)
+    ap.add_argument("--cap", type=int, default=200_000,
+                    help="max states; n <= 18 needs 500_000")
     ap.add_argument("--verify", type=int, default=40,
                     help="entries to re-check against optimal_cost")
     args = ap.parse_args()
@@ -37,7 +46,8 @@ def main():
         seeds += [B.random_cubic(n, seed=n * 77 + s) for s in range(10)]
 
     t0 = time.time()
-    states = enumerate_states(args.max_n, seeds, budget=args.budget)
+    states = enumerate_states(args.max_n, seeds, cap=args.cap,
+                              budget=args.budget)
     t1 = time.time()
     table = build_table(states)
     t2 = time.time()

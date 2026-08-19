@@ -30,6 +30,25 @@ The first candidate since Finding 5 to cut BOTH nodes and seconds. It
 still DECAYS with n, tracking the hit rate, so the closure criterion --
 a `saved` column that stops decaying -- is NOT met.
 
+PUSHED TO n <= 18 (v0.12.0): 470,975 entries, closed, 166.8 MB, 2h 12m
+on one core. Over sizes 20..36 at five seeds each, as mean-of-ratios:
+
+    n         20    22    24    26    28    30    32    34    36
+    n<=18    -43%  -51%  -51%  -77%  -50%  -63%  -44%  -14%  -21%
+    n<=16    -41%  -38%  -43%  -32%  -18%  -28%  -10%   -4%   -5%
+    hits      97%   79%   83%   52%   26%   36%   15%    4%    7%
+
+Two to four times the n <= 16 table through n = 32, single digits by
+n = 34. The extra level buys about FOUR IN N for 10x the entries: the
+constant again, not the asymptote. Load costs 0.10s and 211 MB
+resident, and wall clock tracks nodes even at a 3% hit rate, so the
+price is the build and the storage rather than the lookup.
+
+MEASURE OVER SEEDS, NOT ONE. The same table read -64/-85/-70/-81/-75
+with no trend at one seed per size, which is a flat `saved` column and
+an apparent closure; four more seeds per size dissolved it. Per-instance
+spread at n = 32 runs -92% to -7%.
+
 NOT wired into the default heuristic: the table is a build artifact
 costing minutes to generate and megabytes to store, and the engine must
 work without it. Enable it explicitly.
