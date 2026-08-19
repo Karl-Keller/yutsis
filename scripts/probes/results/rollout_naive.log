@@ -1,0 +1,10 @@
+    n    3n/2 |     cost   moves  flips      sec
+   20     30j |       64      14      5     0.00
+   30     45j |      179      29     15     0.01
+   36     54j |      193      33     16     0.01
+   40     60j |  DID NOT TERMINATE      84.6
+   50     75j |  DID NOT TERMINATE      73.6
+   60     90j |  DID NOT TERMINATE     161.2
+   80    120j |  DID NOT TERMINATE     184.7
+  100    150j |  DID NOT TERMINATE     314.0
+  150    225j |  DID NOT TERMINATE     640.2

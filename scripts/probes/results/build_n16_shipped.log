@@ -1,0 +1,4 @@
+enumerated 47284 states in 262s  CLOSED=True  2.3 GB
+by level: {2: 2, 4: 8, 6: 31, 8: 135, 10: 623, 12: 2921, 14: 11708, 16: 31856}
+built 47284 entries in 248s  (v0.11.0 shipped: 47,284)
+saved, 14.7 MB
