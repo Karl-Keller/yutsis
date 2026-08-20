@@ -218,6 +218,17 @@ Broader roadmap: cost-aware associahedron search and Qiskit emission in
 wigxjpf backend; learned move ordering with exact-search fallback;
 SU(2) tensor-network contraction planning.
 
+## Architecture
+
+Four UML views of the system — class, process, sequence, and state — are
+in [docs/UML.md](docs/UML.md) (Mermaid, rendered inline on GitHub). They
+make explicit the two-layer split the package turns on: a **structural
+search layer** (`Graph`, `search`, `moves`, `bounds`, `patterns`) that
+finds the cheapest reduction plan without touching physics, and an
+**exact algebra layer** (`OGraph`, `replay`, `exact_moves`, `phase`,
+`oracle`) that replays the plan into signed 6j formulas and verifies
+them numerically.
+
 ## Lineage
 
 See [docs/HISTORY.md](docs/HISTORY.md) and [docs/DEVLOG.md](docs/DEVLOG.md)
