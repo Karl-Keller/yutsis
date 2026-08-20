@@ -19,9 +19,25 @@ trusted on inspection.
 
 ## Install
 
-    pip install -e ".[dev,perf]"   # perf pulls pynauty for fast canonicalization
-    pytest -q                      # 102 tests: oracles, theorems, bounds, k=1, compiler
+Modern Debian/Ubuntu (including WSL) mark the system Python as
+externally managed (PEP 668), so `pip install` into it fails with
+`externally-managed-environment`. Install into a virtual environment:
+
+    python3 -m venv .venv
+    source .venv/bin/activate
+    pip install -e ".[dev,perf]"   # perf pulls pynauty; see note below
+    pytest -q                      # 106 tests: oracles, theorems, bounds, k=1, compiler
     python -m yutsis               # benchmark reductions
+
+`perf` (pynauty) is not merely an accelerator — it is required in
+practice. Without it, canonicalization falls back to a pure-Python
+O(V!) permutation search that cannot reduce anything past toy graphs;
+the Petersen showcase (10 vertices) does not complete. pynauty ships
+prebuilt wheels only for recent glibc (2.39+, e.g. Ubuntu 24.04). On
+an older WSL (Ubuntu 22.04 → glibc 2.35) pip builds it from source, so
+install a C toolchain first:
+
+    sudo apt install build-essential python3-dev
 
 ## Showcase: the Petersen graph (a 15j symbol)
 
