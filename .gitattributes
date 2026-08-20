@@ -1,0 +1,9 @@
+# Normalize line endings across platforms.
+#
+# Text files are stored LF in the repository and checked out LF on every
+# OS and git client. Without this, Git for Windows (core.autocrlf=true by
+# default) rewrites the tree to CRLF on checkout, so a subsequent WSL or
+# Linux git -- which leaves core.autocrlf unset -- reports every file as
+# modified even on a fresh clone. eol=lf forces the working-tree ending;
+# text=auto lets git auto-detect binary files and leave them untouched.
+* text=auto eol=lf
